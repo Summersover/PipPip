@@ -1,0 +1,26 @@
+{
+  // 只做类型检查，不产出任何文件。浏览器直接跑 js/ 下的原始文件。
+  //
+  // module/moduleResolution 用 nodenext 而不是 bundler：nodenext 会**强制**
+  // 相对 import 必须写扩展名（'./dates.js' 而不是 './dates'），这正是浏览器
+  // 原生 ES 模块的要求。用 bundler 会放过漏写扩展名的写法，而那种代码在
+  // 打包器下能跑、在浏览器里直接 404——这个项目没有打包器，所以必须让
+  // 类型检查替我们挡住它。
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["js/**/*.js"]
+}

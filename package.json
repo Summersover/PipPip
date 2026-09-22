@@ -1,0 +1,19 @@
+{
+  "name": "pip",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "安静的打卡日历。只给自己和几个朋友用。",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\"",
+    "test:tz": "node tools/check-tz.js",
+    "typecheck": "tsc --noEmit",
+    "stamp": "node tools/stamp-sw.js",
+    "check": "npm run typecheck && npm run test:tz && npm run stamp -- --check",
+    "serve": "python -m http.server 8000"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
