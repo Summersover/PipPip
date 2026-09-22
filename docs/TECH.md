@@ -117,6 +117,7 @@
 │   └── dates.test.js           node --test，纯函数断言 ✓ 已写
 ├── tools/
 │   ├── check-tz.js             多时区跑测试（文件名不能叫 test-*.js，见 10.4）
+│   ├── serve.js                零依赖静态服务器（见 10.1）
 │   └── stamp-sw.js             生成 sw.js 的 ASSETS 与 CACHE
 └── docs/
 ```
@@ -545,24 +546,22 @@ calendar.renderCell(dateKey);
 
 ### 6.3 日历格子的点
 
-```js
-// 每个 pip 一个点，最多 5 个；超过 5 个显示 4 个点 + "+N"
-function dotsForDay(dateKey) {
-  const pips = index.byDate.get(dateKey) ?? [];
-  if (pips.length === 0) return { dots: [], overflow: 0 };
-  if (pips.length <= 5) return { dots: pips, overflow: 0 };
+实现在 `views/calendar.js` 的 `dotsForDay()`，返回**分行**的结果（`{ rows, overflow }`）而不是一个扁平数组——分行不能让 CSS 自动换行来做，因为那样 6 个点会排成 5 + 1，第二行孤零零一个，而 3 + 3 整齐得多。
 
-  // 按模板在模板列表中的顺序排，这样同一个模板的颜色每天位置一致
-  const ordered = [...pips].sort((a, b) => {
-    const ta = index.byTemplate.get(a.template_id)?.sort_order ?? Infinity;
-    const tb = index.byTemplate.get(b.template_id)?.sort_order ?? Infinity;
-    return ta - tb || a.at - b.at;
-  });
-  return { dots: ordered.slice(0, 4), overflow: pips.length - 4 };
-}
-```
+规则（完整推导见 PRD 7.1）：
 
-超过 5 条时退到 4 个点，是因为 5 个点已经占满格子宽度（375px 屏下格子约 49px），再挤进 `+N` 的文字会溢出。见 PRD 7.1。
+| 记录数 | 显示 |
+|---|---|
+| 1–5 | 一行 |
+| 6–8 | 两行，均分 |
+| > 8 | 两行 5 + 3，第二行末尾 `+N` |
+
+两个宽度约束是实测出来的，不是估的：
+
+- 一行 5 个点占 33px，格子最窄（320px 屏）只有 37.1px——这是每行 5 个的上限来源
+- `+N` 要占宽度，**4 个点加文字是 42.6px**：360px 屏的格子 42.9px（余量 0.2px），320px 屏溢出 5.5px。所以有溢出时第二行退到 3 个点 + 文字（34px）
+
+**点区在 DOM 里始终存在**，即使没有点（`buildDots()` 总是返回容器）。容器高度固定为两行，这样日期数字不会随点行数上下浮动——两行点时偏差有十几像素。去掉这个占位就会看到数字没对齐。
 
 ### 6.4 文本安全
 
@@ -907,12 +906,19 @@ export function mergeData(local, incoming) {
 2. service worker 只在安全上下文（HTTPS 或 `localhost`）里工作
 
 ```bash
-python -m http.server 8000
-# 或
-npx serve .
+npm run serve          # 等价于 node tools/serve.js，默认 8000 端口
+node tools/serve.js 8080
 ```
 
 然后开 `http://localhost:8000`。
+
+**为什么自己写一个服务器而不是用 `python -m http.server`**：Windows 上 `python`
+常常只是 Microsoft Store 的占位程序，运行它只会跳应用商店。而「起一个服务器」
+是这个项目里绕不过的步骤（上面两条原因），不该依赖一个可能不存在的解释器。
+`tools/serve.js` 零依赖，只用 `node:http`，另外会打印局域网地址方便用手机打开。
+
+> 手机走局域网 HTTP 时 **service worker 不会注册**（局域网 IP 不是安全上下文）。
+> 手机上验 PWA 必须走 HTTPS 或 `localhost`。
 
 ### 10.2 origin 隔离（容易踩）
 
@@ -1120,6 +1126,9 @@ npm run check   # 类型检查 + 5 个时区跑测试 + 校验 sw.js 生成区�
 - **派生数据一律读时计算**，不写进存储。不要给 template 加计数器字段（见 6.5）
 - **存储**：只在 `store.js` 里出现 `localStorage`
 - **CSS 类名**：小写连字符，语义化（`.cal-cell`、`.pip-dot`、`.sheet-header`），不用 BEM 的 `__` / `--`
+- **日历网格的几何必须是固定的**，两条都踩过：
+  - 格子高度用确定值（`--cell-h`），**不要用百分比**。表格里 `height: 100%` 的解析不可靠（实测 68px 被算成 79px）
+  - `tbody tr` **必须显式给高度**。否则一行里没有本月日期时（30 天的月份只需 5 行，第 6 行全空）会塌缩成内边距的 4px，于是 5 行和 6 行的月份高度不同，**切换月份时页面会跳**——正好违背固定 6 行的初衷（PRD 7.1）
 - **CSS 布局**：日历用 Grid，行和工具栏用 Flex
 - **视口高度**：用 `100dvh` 并给 `100vh` 兜底（iOS 地址栏收放会导致 `vh` 跳变）
 - **安全区**：底部工具栏和 sheet 底部内边距都要加 `env(safe-area-inset-bottom)`

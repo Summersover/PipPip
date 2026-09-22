@@ -1,0 +1,343 @@
+/* ============================================================
+   Pip — 唯一样式表
+   设计规范见 docs/PRD.md 第 9 节。这里只放令牌和组件样式。
+   ============================================================ */
+
+/* ── 设计令牌 ────────────────────────────────────────────────
+   浅色是默认值，深色靠 data-theme="dark" 覆盖。
+   theme-boot.js 在首次绘制前就把 data-theme 定好（浅色 / 深色二选一），
+   所以这里不需要处理 prefers-color-scheme 与 data-theme 的交叉组合。
+   ─────────────────────────────────────────────────────────── */
+
+:root,
+:root[data-theme='light'] {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --text: #1c1b19;
+  --text-secondary: #6b6862;
+  --text-tertiary: #a5a19a;
+  --line: #e8e5df;
+  --accent: #2e6b4f;
+  --accent-soft: #e4eee8;
+  --danger: #c0392b;
+  --pressed: rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme='dark'] {
+  --bg: #131211;
+  --surface: #1e1c1a;
+  --text: #f2f0ec;
+  --text-secondary: #9c9891;
+  --text-tertiary: #6e6a64;
+  --line: #2c2a27;
+  --accent: #6fbf95;
+  --accent-soft: #1f2c25;
+  --danger: #e06c5a;
+  --pressed: rgba(255, 255, 255, 0.06);
+}
+
+:root {
+  /* 间距阶梯：只用这些值 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 圆角 */
+  --r-cell: 10px;
+  --r-card: 14px;
+  --r-sheet: 20px;
+  --r-btn: 10px;
+
+  /* 不加载网络字体：国内太慢，而且会让首屏闪一下 */
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', system-ui, sans-serif;
+
+  --toolbar-h: 56px;
+
+  /* 日历格子高度。远高于 44px 的触摸下限，也比 48px 的底限宽松，
+     让日期之间不至于挤在一起。6 行 × (72 + 4) 加上周表头约 484px。 */
+  --cell-h: 72px;
+
+  /* pip 点的直径。格子宽约 47px，一行 5 个点占 33px。 */
+  --pip: 5px;
+}
+
+/* ── 基础 ─────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+/* 数字一律等宽。不用 tabular-nums 的话 1 比 8 窄，网格看着是歪的。 */
+.cal-day,
+.cal-more {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 布局 ─────────────────────────────────────────────────── */
+
+.app {
+  /* 用 min-height 而不是 height：窗口很矮时页面应该能滚动，而不是把内容裁掉。
+     这也意味着下面不能用百分比高度撑格子——表格里 height:100% 的百分比解析
+     本来就不可靠（实测 68px 的格子被算成 79px），所以格子用确定高度。 */
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 月份栏 ───────────────────────────────────────────────── */
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  /* 下边距比上边距大：月份栏和日历之间留出呼吸空间，让月份栏自成一组。
+     改这个值只会下移周表头和网格，月份栏本身的位置不变。 */
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+}
+
+.cal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  /* 44×44 是 iOS 的触摸目标下限 */
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-btn);
+  color: var(--text-secondary);
+  transition: background-color 120ms ease-out;
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.icon-btn:active {
+  background: var(--pressed);
+}
+
+/* ── 日历网格 ─────────────────────────────────────────────── */
+
+.cal-body {
+  padding: 0 var(--sp-4);
+}
+
+.cal-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.cal-grid th {
+  padding: 0 0 var(--sp-2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.cal-grid td {
+  padding: 2px;
+}
+
+/* 行高必须显式给。否则一行里如果没有任何本月日期（比如 30 天的月份只需要 5 行，
+   第 6 行全空），那一行会塌缩成内边距的 4px——于是 5 行和 6 行的月份高度不同，
+   切换月份时页面就会跳，正好违背固定 6 行的初衷（PRD 7.1）。 */
+.cal-grid tbody tr {
+  height: calc(var(--cell-h) + 4px);
+}
+
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 数字和点作为一组垂直居中（见 PRD 7.1 的格子示意图：数字在上、点紧随其下）。
+     拉到两端的话，高格子会显得断开。 */
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: var(--cell-h);
+  border-radius: var(--r-cell);
+  color: var(--text-secondary);
+  transition: background-color 120ms ease-out;
+}
+
+.cal-cell:active:not(:disabled) {
+  background: var(--pressed);
+}
+
+.cal-day {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* 今天：数字加粗 + 强调色，格子铺一层极淡的强调底色 */
+.cal-cell.is-today {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.cal-cell.is-today .cal-day {
+  font-weight: 600;
+}
+
+/* 未来日期：置灰且不可点。打卡是记录已发生的事，不是立计划。 */
+.cal-cell.is-future {
+  color: var(--text-tertiary);
+}
+
+/* ── pip 点 ───────────────────────────────────────────────── */
+
+.cal-dots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* 高度固定为两行点。**没有点的格子也保留这块空间**，否则日期数字会随
+     点行数上下浮动——两行点的话偏差有十几像素，一眼就看出来没对齐。 */
+  height: calc(var(--pip) * 2 + 2px);
+}
+
+.cal-dots-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: var(--pip);
+}
+
+.pip {
+  flex: none;
+  width: var(--pip);
+  height: var(--pip);
+  border-radius: 50%;
+}
+
+.cal-more {
+  /* 行高等于点高，文字就不会把行撑高，容器高度因此始终确定 */
+  font-size: 11px;
+  line-height: var(--pip);
+  color: var(--text-tertiary);
+}
+
+/* 模板色板。★ 必须和 js/model.js 的 PRESET_COLORS 保持一致——
+   两边都是 8 个固定值，用类而不是行内 style 是为了不触发 CSP 的
+   style-src 限制。tests/theme.test.js 会检查两边没有漂移。 */
+.pip-coral { background: #e8734a; }
+.pip-amber { background: #dfa32b; }
+.pip-moss  { background: #7a9e4a; }
+.pip-pine  { background: #3e8e7e; }
+.pip-lake  { background: #4a8fbf; }
+.pip-iris  { background: #7c6bb8; }
+.pip-rose  { background: #d2607f; }
+.pip-slate { background: #7a7671; }
+
+/* 模板缺失的兜底：只可能来自手工编辑或损坏的导入文件，不静默丢弃记录 */
+.pip-unknown {
+  background: var(--text-tertiary);
+}
+
+/* ── 底部工具栏 ───────────────────────────────────────────── */
+
+.toolbar {
+  margin-top: auto;
+  display: flex;
+  background: var(--surface);
+  /* 固定栏必须和滚动内容分开，这是「不用边框划分区块」的例外 */
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.toolbar-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: var(--toolbar-h);
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: background-color 120ms ease-out;
+}
+
+.toolbar-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.toolbar-btn:active {
+  background: var(--pressed);
+}
+
+/* 「打卡」是主动作，图标和文字都用强调色 */
+.toolbar-btn--primary {
+  color: var(--accent);
+}
+
+/* ── 响应式 ───────────────────────────────────────────────── */
+
+/* 手机优先，375–430px 是设计基准。桌面居中，日历保持 7 列不变形。 */
+@media (min-width: 768px) {
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+/* ── 降低动效 ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "stamp": "node tools/stamp-sw.js",
     "check": "npm run typecheck && npm run test:tz && npm run stamp -- --check",
-    "serve": "python -m http.server 8000"
+    "serve": "node tools/serve.js"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
