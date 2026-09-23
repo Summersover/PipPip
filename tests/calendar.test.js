@@ -120,7 +120,7 @@ test('每行不超过 5 个', () => {
 });
 
 test('超过 8 条时第二行退到 3 个，末尾留给 +N', () => {
-  // 第二行放 4 个点加文字宽 42.6px，在 360px 屏上会顶满、320px 屏上溢出（PRD 7.1）
+  // 第二行放 4 个点加文字宽 55.2px，比 47.2px 的格子溢出 8px（PRD 7.1）
   const nine = dotsForDay(makePips(9), BY_ID);
   assert.deepEqual(nine.rows.map((r) => r.length), [5, 3]);
   assert.equal(nine.overflow, 1);

@@ -1,44 +1,48 @@
 /* ============================================================
    Pip — 唯一样式表
-   视觉语言按 iOS 18：系统语义色、毛玻璃材质、分组内嵌列表、
-   细发丝分隔线、胶囊按钮、今天用填充圆点。
+   视觉语言：暖纸底色 + 圆体数字 + 点为主角。
+   界面本身只有中性色和一处强调色（今天的填充圆、打卡按钮）；
+   模板那 8 种颜色只出现在 pip 点上。今天用填充圆，不用描边环。
    设计规范见 docs/PRD.md 第 9 节。
    ============================================================ */
 
 /* ── 设计令牌 ────────────────────────────────────────────────
-   颜色直接取 iOS 的系统语义色（label / secondaryLabel / separator /
-   systemGroupedBackground …），浅深两套的对比关系是 Apple 调过的，
-   不用自己猜。theme-boot.js 在首次绘制前就把 data-theme 定好，
+   中性色，像纸不像屏幕：底色近白（#FBFBFA，只带一丝暖），文字不用纯黑纯白
+   （PRD 9.1）。
+   浅深两套是配着调出来的，不是把浅色取反。
+   theme-boot.js 在首次绘制前就把 data-theme 定好，
    所以这里不需要处理 prefers-color-scheme 与 data-theme 的交叉组合。
    ─────────────────────────────────────────────────────────── */
 
 :root,
 :root[data-theme='light'] {
-  --bg: #f2f2f7; /* systemGroupedBackground */
-  --surface: #ffffff; /* secondarySystemGroupedBackground */
+  --bg: #fbfbfa; /* 近白，只带一丝暖（原来是更暖的 #F7F6F3） */
+  --surface: #ffffff;
+  /* 就是 --surface 的 82%，配合背景模糊用：sheet 导航栏、顶部横幅。
+     注意别拿 --bg 来算——sheet 压在页面上，那两条栏底下是 --surface。 */
   --surface-translucent: rgba(255, 255, 255, 0.82);
-  --text: #000000; /* label */
-  --text-secondary: rgba(60, 60, 67, 0.6);
-  --text-tertiary: rgba(60, 60, 67, 0.3);
-  --separator: rgba(60, 60, 67, 0.29);
-  --fill: rgba(120, 120, 128, 0.12); /* 按下态 / 次级填充 */
+  --text: #1c1b19;
+  --text-secondary: rgba(10, 10, 10, 0.45);
+  --text-tertiary: rgba(10, 10, 10, 0.22);
+  --separator: #e8e5df;
+  --fill: rgba(28, 27, 25, 0.06); /* 按下态 / 次级填充 */
   --accent: #2e6b4f;
   --on-accent: #ffffff;
-  --danger: #ff3b30; /* systemRed */
+  --danger: #c0392b;
 }
 
 :root[data-theme='dark'] {
-  --bg: #000000;
-  --surface: #1c1c1e;
-  --surface-translucent: rgba(28, 28, 30, 0.82);
-  --text: #ffffff;
-  --text-secondary: rgba(235, 235, 245, 0.6);
-  --text-tertiary: rgba(235, 235, 245, 0.3);
-  --separator: rgba(84, 84, 88, 0.65);
-  --fill: rgba(120, 120, 128, 0.24);
+  --bg: #131211; /* 暖近黑 */
+  --surface: #1e1c1a;
+  --surface-translucent: rgba(30, 28, 26, 0.82);
+  --text: #f2f0ec;
+  --text-secondary: rgba(245, 243, 239, 0.5);
+  --text-tertiary: rgba(245, 243, 239, 0.24);
+  --separator: #2c2a27;
+  --fill: rgba(242, 240, 236, 0.08);
   --accent: #6fbf95;
   --on-accent: #10241a;
-  --danger: #ff453a;
+  --danger: #e06c5a;
 }
 
 :root {
@@ -54,16 +58,18 @@
   /* 圆角 */
   --r-cell: 12px;
   --r-card: 12px;
-  --r-sheet: 14px;
+  --r-sheet: 20px;
   --r-btn: 12px;
   --r-capsule: 999px;
 
   /* iOS 的分隔线是 1 物理像素：在 2x 屏上写 0.5px 才对 */
   --hairline: 0.5px;
 
-  /* 不加载网络字体：国内太慢，而且会让首屏闪一下 */
-  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', system-ui, sans-serif;
+  /* 不加载网络字体：国内太慢，而且会让首屏闪一下。
+     ui-rounded 放最前面：Apple 平台白拿 SF Rounded——日历数字和标题的观感
+     主要就来自它，拿不到的平台自动回落到后面的栈，零成本零依赖。 */
+  --font: ui-rounded, -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
 
   /* iOS 标签栏是 49pt */
   --toolbar-h: 50px;
@@ -76,8 +82,10 @@
      否则有圆和没圆的格子数字会错位 */
   --day-circle: 28px;
 
-  /* pip 点的直径。格子宽约 47px，一行 5 个点占 33px。 */
-  --pip: 5px;
+  /* pip 点的直径。390px 屏（iPhone 14）的格子内宽实测 47.2px：
+     一行 5 个点占 5×7 + 4×2 = 43px，余 2.1px。
+     间距必须保持 2px——改成 3px 就要 47px，只剩 0.1px。见 PRD 7.1。 */
+  --pip: 7px;
 
   /* 弹窗 header 的高度。body 用负 margin 滚到它下面，做出「内容在导航栏
      底下模糊滑过」的效果，所以这个值必须和实际高度对得上 */
@@ -185,17 +193,36 @@ button:disabled {
   justify-content: space-between;
   gap: var(--sp-2);
   /* 下边距比上边距大：月份栏和日历之间留出呼吸空间，让月份栏自成一组。
-     改这个值只会下移周表头和网格，月份栏本身的位置不变。 */
-  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+     改这个值只会下移周表头和网格，月份栏本身的位置不变。
+     横向不留内边距：两个箭头按钮因此贴到屏幕两侧（PRD 9.5）。 */
+  padding: var(--sp-4) 0 var(--sp-6);
+}
+
+/* 箭头贴屏幕两侧：44×44 的触摸区从屏幕边缘起算，图标本身往内让 8px。
+   22px 的图标框里有约 7px 是笔画的留白，所以笔画实际落在离边 15px 左右，
+   正好和日历内容的 16px 边距对齐。标题的居中不受影响——两侧按钮等宽，
+   space-between 仍然把标题压在中线上（实测偏移 0.00px）。 */
+.cal-header > .icon-btn:first-child {
+  justify-items: start;
+  padding-left: var(--sp-2);
+}
+
+.cal-header > .icon-btn:last-child {
+  justify-items: end;
+  padding-right: var(--sp-2);
 }
 
 .cal-title {
   margin: 0;
-  /* iOS 的大标题 */
-  font-size: 28px;
+  /* 居中由 .cal-header 的 space-between 实现：两侧按钮等宽 44px，
+     所以标题中心必然落在中线上，切月份时也不会左右跳。 */
+  font-size: 25px;
   font-weight: 700;
   letter-spacing: -0.02em;
   text-align: center;
+  /* 减淡。25px/700 的全黑标题是页面上最重的一块，会和点抢注意力。
+     用 opacity 而不是换颜色：一个值在浅深两个主题下都对。 */
+  opacity: 0.7;
 }
 
 .icon-btn {
@@ -205,8 +232,15 @@ button:disabled {
   width: 44px;
   height: 44px;
   border-radius: var(--r-capsule);
-  color: var(--accent);
+  color: var(--text-secondary);
   transition: background-color 120ms ease-out;
+}
+
+/* 这条必须显式写。上面的 display: grid 是作者样式，会盖掉浏览器默认的
+   [hidden] { display: none }——于是 hidden 属性完全失效：sheet 的返回按钮
+   在栈底（stack.length === 1）本该藏起来，却照样显示成一个没用的箭头。 */
+.icon-btn[hidden] {
+  display: none;
 }
 
 .icon-btn svg {
@@ -232,9 +266,12 @@ button:disabled {
 
 .cal-grid th {
   padding: 0 0 var(--sp-2);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  /* 周表头：小、粗、疏排，像刻度而不是文字；颜色用三级灰，
+     比日期数字更退一步（都是 --text-tertiary 的活） */
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
 }
 
 .cal-grid td {
@@ -265,9 +302,9 @@ button:disabled {
   width: 100%;
   height: var(--cell-h);
   border-radius: var(--r-cell);
-  /* 当月日期用 label（纯黑/纯白），和 iOS 日历一致。
-     用次级灰会显得整片日历发虚。 */
-  color: var(--text);
+  /* 日期数字退到次级色。色彩只留给 pip 点，点的疏密才能一眼看出来——
+     数字用主文字色的话整片日历会抢掉点的注意力（PRD 9.1）。 */
+  color: var(--text-secondary);
   transition: background-color 120ms ease-out;
 }
 
@@ -283,7 +320,7 @@ button:disabled {
   width: var(--day-circle);
   height: var(--day-circle);
   border-radius: 50%;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 1;
 }
@@ -329,8 +366,10 @@ button:disabled {
 }
 
 .cal-more {
-  /* 行高等于点高，文字就不会把行撑高，容器高度因此始终确定 */
-  font-size: 11px;
+  /* 行高等于点高，文字就不会把行撑高，容器高度因此始终确定。
+     10px 而不是 11px：`+N` 变成两位数时要在 47.2px 的行宽里挤下，
+     11px 的 `+17` 会到 51px（溢出），10px 才放得下。 */
+  font-size: 10px;
   line-height: var(--pip);
   color: var(--text-tertiary);
 }
@@ -357,12 +396,12 @@ button:disabled {
 .toolbar {
   margin-top: auto;
   display: flex;
-  background: var(--surface-translucent);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  /* 固定栏必须和滚动内容分开，这是「不用边框划分区块」的例外 */
-  border-top: var(--hairline) solid var(--separator);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  align-items: center;
+  /* 去掉了底色和顶边。原来那条线的理由是「固定栏必须和滚动内容分开」，
+     但这条工具栏在正常流里（不是 fixed），内容不会滚到它下面，
+     没有需要分开的东西。见 PRD 9.1。 */
+  padding: var(--sp-2) var(--sp-4);
+  padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom, 0px));
 }
 
 .toolbar-btn {
@@ -389,9 +428,25 @@ button:disabled {
   color: var(--text);
 }
 
-/* 「打卡」是主动作，图标和文字都用强调色 */
+/* 「打卡」是主动作：图标装进一枚强调色胶囊，文字用强调色。
+   比另外两个突出，但不用投影、不放大。 */
 .toolbar-btn--primary {
   color: var(--accent);
+}
+
+.toolbar-pill {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 26px;
+  border-radius: var(--r-capsule);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.toolbar-pill svg {
+  width: 17px;
+  height: 17px;
 }
 
 /* ── 弹窗 ─────────────────────────────────────────────────── */
@@ -451,11 +506,13 @@ button:disabled {
   width: 38px;
   height: 5px;
   border-radius: var(--r-capsule);
-  background: var(--fill);
+  background: var(--separator);
 }
 
 .sheet-header {
-  /* 用 grid 而不是 space-between：返回按钮隐藏时标题仍然居中 */
+  /* 两侧各留固定 44px，标题因此永远在中线上。列位必须用下面的 grid-column
+     钉死——只写 grid-template-columns 不够：返回按钮是 display: none，会被
+     移出网格流，剩下两个元素自动往上填，标题就跑到第 1 列被压成 44px 宽。 */
   display: grid;
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
@@ -470,12 +527,21 @@ button:disabled {
   border-bottom: var(--hairline) solid var(--separator);
 }
 
+.sheet-back {
+  grid-column: 1;
+}
+
 .sheet-title {
+  grid-column: 2;
   margin: 0;
   /* iOS 导航栏标题 */
   font-size: 17px;
   font-weight: 600;
   text-align: center;
+}
+
+.sheet-header > .icon-btn:last-child {
+  grid-column: 3;
 }
 
 .sheet-body {
@@ -534,34 +600,17 @@ button:disabled {
   margin: 0;
   padding: 0;
   list-style: none;
-  /* iOS 的 inset grouped：页面底色是 systemGroupedBackground，
-     每一组是一张白色圆角卡片 */
-  background: var(--surface);
-  border-radius: var(--r-card);
-  overflow: hidden;
+  /* 不用卡片，也不用分隔线——靠行间距分组（PRD 9.1）。 */
 }
 
 .day-row {
-  position: relative;
   display: grid;
   grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: var(--sp-3);
-  /* iOS 列表行最小 44pt */
+  /* 44pt 是 iOS 的触摸目标下限 */
   min-height: 44px;
-  padding: var(--sp-3) var(--sp-4);
-}
-
-/* 分隔线从左侧内边距处开始、不到右边——这是 iOS 列表最明显的特征之一，
-   也是「不用边框划分区块」的例外：列表行之间必须有线。 */
-.day-row + .day-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: var(--sp-4);
-  right: 0;
-  height: var(--hairline);
-  background: var(--separator);
+  padding: var(--sp-3) 0;
 }
 
 .day-time {
