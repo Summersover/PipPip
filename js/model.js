@@ -66,6 +66,31 @@ export const PRESET_COLORS = [
 ];
 
 /**
+ * 色值 → CSS 类名。`app.css` 里每个类对应一条 `background` 规则。
+ *
+ * 和 `PRESET_COLORS` 放在一起，因为它就是那份色板的呈现对应物，两个视图
+ * （月历、当天列表）都要用。放在某个视图里会让另一个视图不得不跨视图 import，
+ * 而 TECH 2 规定 `views/*` 之间不互相 import。
+ *
+ * 用类而不是行内 `style` 属性：CSP 的 `style-src 'self'` 会拦掉行内样式。
+ *
+ * ★ 键必须和 `PRESET_COLORS`、`app.css` 的 `.pip-*` 规则保持一致，
+ *   `tests/calendar.test.js` 会把漂移测出来。
+ *
+ * @type {Record<string, string>}
+ */
+export const COLOR_CLASS = {
+  '#E8734A': 'pip-coral',
+  '#DFA32B': 'pip-amber',
+  '#7A9E4A': 'pip-moss',
+  '#3E8E7E': 'pip-pine',
+  '#4A8FBF': 'pip-lake',
+  '#7C6BB8': 'pip-iris',
+  '#D2607F': 'pip-rose',
+  '#7A7671': 'pip-slate',
+};
+
+/**
  * 生成 id。
  *
  * 用 `crypto.randomUUID()` 而不是时间戳或 `Math.random()`：id 必须保证跨设备

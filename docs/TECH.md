@@ -607,25 +607,52 @@ template-edit   模板新建/编辑
 **栈行为**：
 
 - 栈深 > 1 时，header 左侧出现 `‹` 返回
-- `✕` 或下滑关闭**整个栈**
+- `✕`、点遮罩、`Escape`、下滑都关闭**整个栈**
 - 页面切换用 180ms `ease-out` 的横向位移 + 淡入
 - 关闭时清空栈
 
+**下滑关闭**：从顶部拖拽区往下拖。两个条件满足其一就关——位移超过 96px，或速度超过 0.5 px/ms（快速甩一下，哪怕距离不够）。否则回弹。
+
 ### 7.2 Android 返回键
 
-PWA 里没有路由，Android 的返回键默认会**退出应用**，用户想关弹窗却退出了。对策：每次 push 页面时 `history.pushState({ pip: depth }, '')`，监听 `popstate` 时 pop 一层；栈空时再按返回才真的退出。
+PWA 里没有路由，Android 的返回键默认会**退出应用**，用户想关弹窗却退出了。对策：每次 push 时 `history.pushState({ pipSheet: 栈深 }, '')`，`popstate` 时把栈同步回去；栈空时再按返回才真的退出。
 
 这个必须做，否则 Android 上体验是坏的。桌面浏览器的浏览器返回键也顺带正确了。
+
+**关键设计：`popstate` 的处理从 `history.state` 读出目标深度，而不是数「该忽略几次」。**
+
+第一版用的是「我们自己调 `history.go(-n)` 时，忽略接下来 N 次 popstate」这种计数器，它有个致命问题：`history.go()` 是异步的，中间还可能夹杂别的历史事件，计数器一旦和实际到达的 popstate 数量对不上就**永久错位**——要么该忽略的没忽略（面板莫名其妙关掉），要么该响应的被吃掉（返回键失灵）。
+
+改成从 `history.state.pipSheet` 读出「浏览器认为现在该有多深」，然后把栈调整到那个深度：
+
+```js
+function syncToDepth(wanted) {
+  const target = Math.max(0, Math.min(wanted, stack.length));
+  while (stack.length > target) stack.pop();
+  if (stack.length === 0) { if (!closing) hidePanel(); return; }
+  renderStack('back');
+}
+```
+
+这是**自纠正**的：多退的层会补上，多余的 popstate 是空操作。副作用是 `closeAll()` 里也不需要设「忽略一次」了——`history.go(-layers)` 落回基础记录后 `history.state` 里没有 `pipSheet`，目标深度是 0，而此时栈已经是空的，天然是空操作。
 
 ### 7.3 焦点管理
 
 弹窗打开时：
 
 1. 记录当前 `document.activeElement` 作为返回目标
-2. 焦点移到 sheet 的第一个可聚焦元素
-3. 焦点循环限制在 sheet 内（`Tab` / `Shift+Tab` 不逃出）
+2. 焦点移到**面板容器本身**（它带 `tabindex="-1"` 和 `aria-labelledby`）。不要聚焦第一个按钮：那样读屏只念「关闭按钮」，用户不知道打开的是什么；聚焦容器会先念出「对话框 + 标题」
+3. 焦点循环限制在面板内（`Tab` / `Shift+Tab` 不逃出）——不限制的话焦点会跑到背后的日历上，而用户看不见那里
 
 关闭时焦点回到第 1 步记录的元素。
+
+### 7.4 三个容易踩的实现细节
+
+都是写完才发现的，记在这里：
+
+- **关闭动画的定时器必须能取消。** 关闭用 240ms 的 `setTimeout` 收尾（藏元素、清空栈），如果用户在动画跑完前又打开了面板，那个定时器会在打开之后触发，把刚打开的面板又藏掉。所以 `showPanel()` 里先 `clearTimeout`。
+- **拖拽结束时要先复位位移，再决定关不关。** 反过来写的话，`closeAll()` 在栈已空时会提前返回，那个 `translateY` 就永久留在元素上了。
+- **`setPointerCapture()` 要包 try/catch。** 指针在两次事件之间已经释放时它会抛。捕获只是为了在指针移出拖拽区后还能收到 `pointermove`，拿不到也不该让整个手势失效。
 
 ---
 
@@ -1157,9 +1184,9 @@ npm run check   # 类型检查 + 5 个时区跑测试 + 校验 sw.js 生成区�
 |---|---|---|---|
 | 0 | 工具链：`package.json` + `tsconfig.json` + `tools/` | 类型检查和测试能跑 | ✅ 已完成 |
 | 1 | `dates.js` + `tests/dates.test.js`（5 个时区） | 时区和周一起始有断言兜住 | ✅ 已完成 |
-| 2 | 静态骨架：`index.html` + `app.css` + 设计令牌 + 写死数据的日历网格 | 能看到月历和彩点 | |
-| 3 | `store.js` + `model.js` + `state.js`，从存储读出并渲染 | 数据能持久化 | |
-| 4 | `views/sheet.js` 弹窗容器 + 页面栈 + Android 返回键 | 弹窗骨架可用 | |
+| 2 | 静态骨架：`index.html` + `app.css` + 设计令牌 + 写死数据的日历网格 | 能看到月历和彩点 | ✅ 已完成 |
+| 3 | `store.js` + `model.js` + `state.js`，从存储读出并渲染 | 数据能持久化 | ✅ 已完成 |
+| 4 | `views/sheet.js` 弹窗容器 + 页面栈 + Android 返回键 | 弹窗骨架可用 | ✅ 已完成 |
 | 5 | `views/pip-form.js` 打卡流程 | 核心动线通了 | |
 | 6 | `views/templates.js` 模板管理（新建/编辑/停用/删除） | 模板可管理 | |
 | 7 | `views/day.js` 某日列表 + 详情 | 能回看和补记 | |

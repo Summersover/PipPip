@@ -1,10 +1,9 @@
 /**
  * 日历视图的两组断言。
  *
- * 1. 色板一致性——`model.js` 的 PRESET_COLORS、`calendar.js` 的 COLOR_CLASS、
- *    `app.css` 的 `.pip-*` 规则是三份重复的数据，必须同步。用类而不是行内
- *    style 是为了不触发 CSP 的 style-src 限制，代价就是这份重复，所以要有
- *    测试兜住漂移。
+ * 1. 色板一致性——`model.js` 的 PRESET_COLORS 和 COLOR_CLASS、`app.css` 的
+ *    `.pip-*` 规则是重复的数据，必须同步。用类而不是行内 style 是为了不触发
+ *    CSP 的 style-src 限制，代价就是这份重复，所以要有测试兜住漂移。
  * 2. 点数量规则——「最多两行共 8 个，超过就显示 8 个 + `+N`」是 PRD 7.1 的
  *    产品决定，很容易在重构时被改错，而错了只是看起来不对，不会报错。
  */
@@ -13,8 +12,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { PRESET_COLORS } from '../js/model.js';
-import { COLOR_CLASS, dotsForDay } from '../js/views/calendar.js';
+import { COLOR_CLASS, PRESET_COLORS } from '../js/model.js';
+import { dotsForDay } from '../js/views/calendar.js';
 
 const css = fs.readFileSync(new URL('../css/app.css', import.meta.url), 'utf8');
 

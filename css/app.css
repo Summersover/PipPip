@@ -1,39 +1,44 @@
 /* ============================================================
    Pip — 唯一样式表
-   设计规范见 docs/PRD.md 第 9 节。这里只放令牌和组件样式。
+   视觉语言按 iOS 18：系统语义色、毛玻璃材质、分组内嵌列表、
+   细发丝分隔线、胶囊按钮、今天用填充圆点。
+   设计规范见 docs/PRD.md 第 9 节。
    ============================================================ */
 
 /* ── 设计令牌 ────────────────────────────────────────────────
-   浅色是默认值，深色靠 data-theme="dark" 覆盖。
-   theme-boot.js 在首次绘制前就把 data-theme 定好（浅色 / 深色二选一），
+   颜色直接取 iOS 的系统语义色（label / secondaryLabel / separator /
+   systemGroupedBackground …），浅深两套的对比关系是 Apple 调过的，
+   不用自己猜。theme-boot.js 在首次绘制前就把 data-theme 定好，
    所以这里不需要处理 prefers-color-scheme 与 data-theme 的交叉组合。
    ─────────────────────────────────────────────────────────── */
 
 :root,
 :root[data-theme='light'] {
-  --bg: #f7f6f3;
-  --surface: #ffffff;
-  --text: #1c1b19;
-  --text-secondary: #6b6862;
-  --text-tertiary: #a5a19a;
-  --line: #e8e5df;
+  --bg: #f2f2f7; /* systemGroupedBackground */
+  --surface: #ffffff; /* secondarySystemGroupedBackground */
+  --surface-translucent: rgba(255, 255, 255, 0.82);
+  --text: #000000; /* label */
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --text-tertiary: rgba(60, 60, 67, 0.3);
+  --separator: rgba(60, 60, 67, 0.29);
+  --fill: rgba(120, 120, 128, 0.12); /* 按下态 / 次级填充 */
   --accent: #2e6b4f;
-  --accent-soft: #e4eee8;
-  --danger: #c0392b;
-  --pressed: rgba(0, 0, 0, 0.05);
+  --on-accent: #ffffff;
+  --danger: #ff3b30; /* systemRed */
 }
 
 :root[data-theme='dark'] {
-  --bg: #131211;
-  --surface: #1e1c1a;
-  --text: #f2f0ec;
-  --text-secondary: #9c9891;
-  --text-tertiary: #6e6a64;
-  --line: #2c2a27;
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-translucent: rgba(28, 28, 30, 0.82);
+  --text: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --text-tertiary: rgba(235, 235, 245, 0.3);
+  --separator: rgba(84, 84, 88, 0.65);
+  --fill: rgba(120, 120, 128, 0.24);
   --accent: #6fbf95;
-  --accent-soft: #1f2c25;
-  --danger: #e06c5a;
-  --pressed: rgba(255, 255, 255, 0.06);
+  --on-accent: #10241a;
+  --danger: #ff453a;
 }
 
 :root {
@@ -47,23 +52,36 @@
   --sp-8: 32px;
 
   /* 圆角 */
-  --r-cell: 10px;
-  --r-card: 14px;
-  --r-sheet: 20px;
-  --r-btn: 10px;
+  --r-cell: 12px;
+  --r-card: 12px;
+  --r-sheet: 14px;
+  --r-btn: 12px;
+  --r-capsule: 999px;
+
+  /* iOS 的分隔线是 1 物理像素：在 2x 屏上写 0.5px 才对 */
+  --hairline: 0.5px;
 
   /* 不加载网络字体：国内太慢，而且会让首屏闪一下 */
   --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', system-ui, sans-serif;
 
-  --toolbar-h: 56px;
+  /* iOS 标签栏是 49pt */
+  --toolbar-h: 50px;
 
   /* 日历格子高度。远高于 44px 的触摸下限，也比 48px 的底限宽松，
      让日期之间不至于挤在一起。6 行 × (72 + 4) 加上周表头约 484px。 */
   --cell-h: 72px;
 
+  /* 今天那个填充圆的直径，也是所有日期数字的盒子尺寸——必须所有格子一致，
+     否则有圆和没圆的格子数字会错位 */
+  --day-circle: 28px;
+
   /* pip 点的直径。格子宽约 47px，一行 5 个点占 33px。 */
   --pip: 5px;
+
+  /* 弹窗 header 的高度。body 用负 margin 滚到它下面，做出「内容在导航栏
+     底下模糊滑过」的效果，所以这个值必须和实际高度对得上 */
+  --sheet-header-h: 52px;
 }
 
 /* ── 基础 ─────────────────────────────────────────────────── */
@@ -81,8 +99,9 @@ html {
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.4;
+  /* iOS 正文是 17pt */
+  font-size: 17px;
+  line-height: 1.35;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -105,7 +124,8 @@ button:disabled {
 
 /* 数字一律等宽。不用 tabular-nums 的话 1 比 8 窄，网格看着是歪的。 */
 .cal-day,
-.cal-more {
+.cal-more,
+.day-time {
   font-variant-numeric: tabular-nums;
 }
 
@@ -129,10 +149,12 @@ button:disabled {
   align-items: center;
   gap: var(--sp-2) var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  background: var(--surface-translucent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: var(--hairline) solid var(--separator);
   color: var(--danger);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .banner[hidden] {
@@ -147,13 +169,12 @@ button:disabled {
 
 .banner-action {
   flex: none;
-  padding: 6px 10px;
-  border-radius: var(--r-btn);
-  font-size: 13px;
-  font-weight: 500;
-  /* 不用描边按钮，改用浅底——和「没有描边按钮」的规范一致 */
+  padding: 6px 12px;
+  border-radius: var(--r-capsule);
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text);
-  background: var(--pressed);
+  background: var(--fill);
 }
 
 /* ── 月份栏 ───────────────────────────────────────────────── */
@@ -170,8 +191,10 @@ button:disabled {
 
 .cal-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  /* iOS 的大标题 */
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   text-align: center;
 }
 
@@ -181,8 +204,8 @@ button:disabled {
   /* 44×44 是 iOS 的触摸目标下限 */
   width: 44px;
   height: 44px;
-  border-radius: var(--r-btn);
-  color: var(--text-secondary);
+  border-radius: var(--r-capsule);
+  color: var(--accent);
   transition: background-color 120ms ease-out;
 }
 
@@ -192,7 +215,7 @@ button:disabled {
 }
 
 .icon-btn:active {
-  background: var(--pressed);
+  background: var(--fill);
 }
 
 /* ── 日历网格 ─────────────────────────────────────────────── */
@@ -209,10 +232,9 @@ button:disabled {
 
 .cal-grid th {
   padding: 0 0 var(--sp-2);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .cal-grid td {
@@ -221,7 +243,13 @@ button:disabled {
 
 /* 行高必须显式给。否则一行里如果没有任何本月日期（比如 30 天的月份只需要 5 行，
    第 6 行全空），那一行会塌缩成内边距的 4px——于是 5 行和 6 行的月份高度不同，
-   切换月份时页面就会跳，正好违背固定 6 行的初衷（PRD 7.1）。 */
+   切换月份时页面就会跳，正好违背固定 6 行的初衷（PRD 7.1）。
+
+   试过让表格撑满剩余高度（.cal-body 用 flex、表格 flex:1、行高交给浏览器均分），
+   两个问题都绕不过去：格子的 height:100% 在表格单元格里不解析（内容贴在行顶部），
+   空行仍然塌缩（实测 9 月第 6 行 10px、其余 135px，8 月六行均 114px，行高分布
+   不同 → 切月时日期位置会跳）。要真正铺满得换成 CSS Grid，那会动到表格语义，
+   留到单独一轮做。 */
 .cal-grid tbody tr {
   height: calc(var(--cell-h) + 4px);
 }
@@ -237,27 +265,33 @@ button:disabled {
   width: 100%;
   height: var(--cell-h);
   border-radius: var(--r-cell);
-  color: var(--text-secondary);
+  /* 当月日期用 label（纯黑/纯白），和 iOS 日历一致。
+     用次级灰会显得整片日历发虚。 */
+  color: var(--text);
   transition: background-color 120ms ease-out;
 }
 
 .cal-cell:active:not(:disabled) {
-  background: var(--pressed);
+  background: var(--fill);
 }
 
+/* 数字外面套一个和「今天」同尺寸的盒子。**每个格子都要有**，不然有圆和没圆的
+   格子，数字会错位。 */
 .cal-day {
+  display: grid;
+  place-items: center;
+  width: var(--day-circle);
+  height: var(--day-circle);
+  border-radius: 50%;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1;
 }
 
-/* 今天：数字加粗 + 强调色，格子铺一层极淡的强调底色 */
-.cal-cell.is-today {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
+/* 今天：填充圆 + 反白数字。这是 iOS 日历的标志性做法，比给整格铺底色清楚得多。 */
 .cal-cell.is-today .cal-day {
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -301,9 +335,9 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-/* 模板色板。★ 必须和 js/model.js 的 PRESET_COLORS 保持一致——
+/* 模板色板。★ 必须和 js/model.js 的 PRESET_COLORS 与 COLOR_CLASS 保持一致——
    两边都是 8 个固定值，用类而不是行内 style 是为了不触发 CSP 的
-   style-src 限制。tests/theme.test.js 会检查两边没有漂移。 */
+   style-src 限制。tests/calendar.test.js 会检查两边没有漂移。 */
 .pip-coral { background: #e8734a; }
 .pip-amber { background: #dfa32b; }
 .pip-moss  { background: #7a9e4a; }
@@ -323,9 +357,11 @@ button:disabled {
 .toolbar {
   margin-top: auto;
   display: flex;
-  background: var(--surface);
+  background: var(--surface-translucent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
   /* 固定栏必须和滚动内容分开，这是「不用边框划分区块」的例外 */
-  border-top: 1px solid var(--line);
+  border-top: var(--hairline) solid var(--separator);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -335,25 +371,224 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   height: var(--toolbar-h);
-  font-size: 11px;
+  /* iOS 标签栏的文字是 10pt */
+  font-size: 10px;
+  font-weight: 500;
   color: var(--text-secondary);
-  transition: background-color 120ms ease-out;
+  transition: color 120ms ease-out;
 }
 
 .toolbar-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
 }
 
 .toolbar-btn:active {
-  background: var(--pressed);
+  color: var(--text);
 }
 
 /* 「打卡」是主动作，图标和文字都用强调色 */
 .toolbar-btn--primary {
   color: var(--accent);
+}
+
+/* ── 弹窗 ─────────────────────────────────────────────────── */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+
+.scrim.is-open {
+  opacity: 1;
+}
+
+.scrim[hidden] {
+  display: none;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  max-height: 90dvh;
+  background: var(--surface);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  /* 全项目唯一允许用阴影的地方 */
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(100%);
+  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.sheet.is-open {
+  transform: none;
+}
+
+.sheet[hidden] {
+  display: none;
+}
+
+.sheet-drag {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+  /* 拖拽区不参与滚动，否则下滑手势会和滚动打架 */
+  touch-action: none;
+}
+
+.sheet-handle {
+  width: 38px;
+  height: 5px;
+  border-radius: var(--r-capsule);
+  background: var(--fill);
+}
+
+.sheet-header {
+  /* 用 grid 而不是 space-between：返回按钮隐藏时标题仍然居中 */
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  /* body 用负 margin 滚到这条下面，所以要抬起来盖住它 */
+  position: relative;
+  z-index: 1;
+  height: var(--sheet-header-h);
+  padding: 0 var(--sp-3);
+  background: var(--surface-translucent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: var(--hairline) solid var(--separator);
+}
+
+.sheet-title {
+  margin: 0;
+  /* iOS 导航栏标题 */
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 负 margin + 等量 padding：内容往上钻到 header 底下，滚动时在毛玻璃后面
+     模糊滑过（iOS 的 scroll edge 效果），但初始位置仍然在 header 下面。 */
+  margin-top: calc(-1 * var(--sheet-header-h));
+  padding: var(--sheet-header-h) var(--sp-4) var(--sp-4);
+  /* iOS 的滚动是带惯性的，且滚到头不回弹整页 */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* 页面切换：横向位移 + 淡入，180ms ease-out（PRD 9.6） */
+@keyframes sheet-page-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheet-page-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sheet-body.page-in {
+  animation: sheet-page-in 180ms ease-out;
+}
+
+.sheet-body.page-in-back {
+  animation: sheet-page-in-back 180ms ease-out;
+}
+
+/* ── 分组内嵌列表（iOS 的 inset grouped） ─────────────────── */
+
+.day-empty {
+  margin: var(--sp-8) 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.day-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* iOS 的 inset grouped：页面底色是 systemGroupedBackground，
+     每一组是一张白色圆角卡片 */
+  background: var(--surface);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.day-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  /* iOS 列表行最小 44pt */
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+/* 分隔线从左侧内边距处开始、不到右边——这是 iOS 列表最明显的特征之一，
+   也是「不用边框划分区块」的例外：列表行之间必须有线。 */
+.day-row + .day-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sp-4);
+  right: 0;
+  height: var(--hairline);
+  background: var(--separator);
+}
+
+.day-time {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.day-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* 没设 emoji 时的色点：复用 .pip-* 的颜色，但要大一些 */
+.day-icon.pip {
+  width: 10px;
+  height: 10px;
+}
+
+.day-title {
+  font-size: 17px;
+}
+
+.day-note {
+  grid-column: 2 / -1;
+  margin: 2px 0 0;
+  font-size: 15px;
+  color: var(--text-secondary);
 }
 
 /* ── 响应式 ───────────────────────────────────────────────── */

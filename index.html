@@ -71,6 +71,29 @@
 
 </main>
 
+<!-- 弹窗。只有一个容器，内部是页面栈，不堆叠多层（TECH 7.1） -->
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" hidden>
+  <!-- 顶部拖拽区：往下拖超过阈值就关闭 -->
+  <div class="sheet-drag" id="sheet-drag">
+    <span class="sheet-handle"></span>
+  </div>
+  <header class="sheet-header">
+    <button class="icon-btn sheet-back" id="sheet-back" type="button" aria-label="返回" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14.5 5.5 8 12l6.5 6.5"/>
+      </svg>
+    </button>
+    <h2 class="sheet-title" id="sheet-title"></h2>
+    <button class="icon-btn" id="sheet-close" type="button" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+        <path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>
+      </svg>
+    </button>
+  </header>
+  <div class="sheet-body" id="sheet-body"></div>
+</section>
+
 <script type="module" src="./js/app.js"></script>
 </body>
 </html>

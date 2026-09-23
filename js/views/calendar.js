@@ -5,6 +5,7 @@
  */
 
 import { WEEKDAY_LABELS, buildMonthGrid, formatDayLabel, formatMonth } from '../dates.js';
+import { COLOR_CLASS } from '../model.js';
 
 /**
  * 一行最多几个点。
@@ -30,31 +31,6 @@ const MAX_DOTS = 8;
 
 /** 有溢出时第二行放几个点，剩下的宽度留给 `+N`。 */
 const OVERFLOW_ROW_DOTS = 3;
-
-/**
- * 色值 → CSS 类名。
- *
- * 用类而不是行内 `style` 属性：CSP 的 `style-src 'self'` 会拦掉行内样式，
- * 而这 8 个色是固定预设，用类更简单也更快。色值本身存在 `Template.color` 里。
- *
- * ★ 键必须和 `model.js` 的 `PRESET_COLORS`、`app.css` 的 `.pip-*` 规则三方一致。
- *   不写成「按索引配对 PRESET_COLORS」是因为那样重排色板会静默换色；
- *   写成显式映射虽然重复，但 `tests/calendar.test.js` 能把漂移测出来。
- *
- * 导出它是为了让测试能检查这份三方一致性。
- *
- * @type {Record<string, string>}
- */
-export const COLOR_CLASS = {
-  '#E8734A': 'pip-coral',
-  '#DFA32B': 'pip-amber',
-  '#7A9E4A': 'pip-moss',
-  '#3E8E7E': 'pip-pine',
-  '#4A8FBF': 'pip-lake',
-  '#7C6BB8': 'pip-iris',
-  '#D2607F': 'pip-rose',
-  '#7A7671': 'pip-slate',
-};
 
 /**
  * 按模板在模板列表中的顺序排序。

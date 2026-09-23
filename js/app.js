@@ -7,6 +7,8 @@ import { goToday, index, refreshToday, reindex, state } from './state.js';
 import * as store from './store.js';
 import { clearBanner, mountBanner, showBanner } from './views/banner.js';
 import { renderCalendar, renderTitle } from './views/calendar.js';
+import { renderDayList } from './views/day.js';
+import { mountSheet, push, registerPage } from './views/sheet.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
@@ -99,6 +101,8 @@ function exportRaw(raw) {
 
 async function boot() {
   mountBanner(document.getElementById('banner'));
+  mountSheet();
+  registerPage('day-list', renderDayList);
 
   state.prefs = await store.loadPrefs();
   const availability = await store.probe();
@@ -163,6 +167,17 @@ document.getElementById('prev-month')?.addEventListener('click', () => {
 document.getElementById('next-month')?.addEventListener('click', () => {
   shiftMonth(1);
   render();
+});
+
+// 事件委托：42 个格子只挂一个监听器。用 closest 而不是直接比较 target，
+// 因为点到的可能是格子里的日期数字或点。
+gridEl?.addEventListener('click', (event) => {
+  const node = event.target;
+  if (!(node instanceof Element)) return;
+  const cell = node.closest('.cal-cell');
+  if (!(cell instanceof HTMLButtonElement) || cell.disabled) return;
+  const dateKey = cell.dataset.date;
+  if (dateKey) push('day-list', { dateKey });
 });
 
 // 页面重新可见时，如果已经跨过午夜就重绘
