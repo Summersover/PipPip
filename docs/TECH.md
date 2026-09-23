@@ -102,6 +102,7 @@
 │   ├── state.js                状态容器与派生索引
 │   ├── theme.js                主题解析与应用
 │   └── views/
+│       ├── banner.js           顶部横幅（数据安全提示，不可关闭）
 │       ├── sheet.js            弹窗容器与内部页面栈
 │       ├── calendar.js         月历网格
 │       ├── day.js              某日列表 + 打卡详情
@@ -168,36 +169,22 @@ pip:v1:prefs    → 偏好设置（主题），与数据分开
 
 ### 3.3 读取
 
+返回的四种状态，调用方必须全部处理：
+
 ```js
-// 返回的四种状态，调用方必须全部处理
 { status: 'empty' }                    // 没有数据，首次打开
 { status: 'ok', data }                 // 正常
-{ status: 'recovered', data, raw }     // 主 key 坏了，从 backup 恢复成功
-{ status: 'corrupt', raw }             // 主 key 和 backup 都坏了
+{ status: 'recovered', data, raw }     // 主 key 坏了或结构不对，从 backup 恢复成功
+{ status: 'corrupt', raw }             // 主 key 和 backup 都不可用
 ```
 
-```js
-export async function load() {
-  const rawMain = read(KEY_DATA);
-  if (rawMain === null) {
-    const rawBak = read(KEY_BACKUP);
-    if (rawBak === null) return { status: 'empty' };
-    // 主 key 缺失但 backup 在：也用 backup
-    const parsed = tryParse(rawBak);
-    return parsed ? { status: 'recovered', data: parsed, raw: rawBak }
-                  : { status: 'corrupt', raw: rawBak };
-  }
-  const parsed = tryParse(rawMain);
-  if (parsed) return { status: 'ok', data: normalize(parsed) };
+判断「可用」**不能只看 `JSON.parse` 成不成功**，还要看解析出来的东西像不像我们的结构（`looksLikeData()`：至少有一个 `templates` 或 `pips` 数组）。
 
-  // 主 key 坏了，回退 backup
-  const rawBak = read(KEY_BACKUP);
-  const bakParsed = rawBak ? tryParse(rawBak) : null;
-  return bakParsed
-    ? { status: 'recovered', data: normalize(bakParsed), raw: rawMain }
-    : { status: 'corrupt', raw: rawMain };
-}
-```
+这一步是必须的，因为存在一种很隐蔽的失败：JSON 能解析、但不是我们的数据（手工改过，或者误存了别的 JSON）。如果把它当成空数据渲染，用户看到空日历、顺手点一下打卡，就会把原数据覆盖掉——**和 3.5 要防的是同一条链**。所以这种情况算损坏：保留原始字符串，不自动写回。
+
+职责划分：`looksLikeData()` 判断「这是不是我们的数据」，`normalize()` 在确认是我们的数据之后补全缺字段、丢弃日期非法的记录。两者不能互相替代。
+
+实现在 `store.js`，这里不再重复代码片段，避免两处漂移。
 
 ### 3.4 写入
 
@@ -1008,8 +995,15 @@ npm run test:tz   # 在 5 个时区下各跑一遍 ← 关键
 同时只显示一条，按严重度取最高：
 
 ```
-数据损坏（只读） > 存储写入失败 > 无痕模式警告 > 有新版本
+数据损坏（只读）40 > 存储写入失败 30 > 无痕模式警告 20 > 有新版本 10
 ```
+
+**横幅必须能被撤掉，而且要按 kind 匹配地撤**（`clearBanner(kind)`）。横幅没有自动消失的机制，所以两个地方必须主动清：
+
+- 用户点了「用备份继续」之后要撤掉损坏那条——否则「主数据读取失败，现在显示的是备份内容」会一直挂着，而它已经不成立了
+- 写入成功之后要撤掉配额那条
+
+按 kind 匹配是为了避免顺手把更严重的那条一起撤掉：写成功一次不该把「数据损坏」也清掉。
 
 ### 11.3 绝不静默失败
 

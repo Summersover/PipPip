@@ -121,6 +121,41 @@ button:disabled {
   flex-direction: column;
 }
 
+/* ── 顶部横幅 ─────────────────────────────────────────────── */
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+.banner-text {
+  flex: 1 1 auto;
+  /* min-width: 0 让长文案能换行而不是把按钮挤出屏幕 */
+  min-width: 0;
+}
+
+.banner-action {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: var(--r-btn);
+  font-size: 13px;
+  font-weight: 500;
+  /* 不用描边按钮，改用浅底——和「没有描边按钮」的规范一致 */
+  color: var(--text);
+  background: var(--pressed);
+}
+
 /* ── 月份栏 ───────────────────────────────────────────────── */
 
 .cal-header {

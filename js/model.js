@@ -4,6 +4,17 @@
  * 这里不接触 localStorage——那是 `store.js` 的唯一职责（见 TECH 3.1）。
  */
 
+import { isDateKey } from './dates.js';
+
+/** 结构版本。改结构时递增，并在 `migrate()` 里补迁移。 */
+export const SCHEMA_VERSION = 1;
+
+/** 标题最长字数（PRD 7.5）。 */
+export const TITLE_MAX = 20;
+
+/** 备注最长字数。上限是容量考虑，见 TECH 3.7。 */
+export const NOTE_MAX = 200;
+
 /**
  * 打卡模板。
  * @typedef {object} Template
@@ -96,4 +107,96 @@ export function groupPipsByDate(pips) {
  */
 export function indexTemplates(templates) {
   return new Map(templates.map((t) => [t.id, t]));
+}
+
+/**
+ * 从原始值里安全地取一个对象。
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function asObject(value) {
+  return value && typeof value === 'object' ? /** @type {Record<string, unknown>} */ (value) : {};
+}
+
+/**
+ * 把读入的原始数据修补成合法结构。
+ *
+ * 每次从存储或导入读入后都要过一遍。**唯一的破坏性操作是丢弃 `date` 非法的
+ * pip**——`date` 是按天分组和排序的唯一依据，非法就无法定位。所以要给 `onDrop`
+ * 回调留痕（见 TECH 11.4），不能静默丢。
+ *
+ * 无法解析的 `template_id` **不丢弃**：保留记录，由视图渲染成灰色兜底。孤儿记录
+ * 只可能来自手工编辑或损坏的导入文件，静默删掉是更坏的选择。
+ *
+ * @param {unknown} raw
+ * @param {(dropped: { id: string, date: unknown }) => void} [onDrop]
+ * @returns {PipData}
+ */
+export function normalize(raw, onDrop) {
+  const source = asObject(raw);
+  const rawTemplates = Array.isArray(source.templates) ? source.templates : [];
+  const rawPips = Array.isArray(source.pips) ? source.pips : [];
+
+  const templates = rawTemplates.map((entry) => {
+    const t = asObject(entry);
+    const color = typeof t.color === 'string' ? t.color : '';
+    return {
+      id: typeof t.id === 'string' && t.id ? t.id : newId('t'),
+      title: String(t.title ?? '').slice(0, TITLE_MAX),
+      icon: String(t.icon ?? ''),
+      color: PRESET_COLORS.includes(color) ? color : PRESET_COLORS[0],
+      archived: Boolean(t.archived),
+      sort_order: typeof t.sort_order === 'number' && Number.isFinite(t.sort_order) ? t.sort_order : 0,
+      created_at: Number(t.created_at) || Date.now(),
+      updated_at: Number(t.updated_at) || Date.now(),
+    };
+  });
+
+  /** @type {Pip[]} */
+  const pips = [];
+  for (const entry of rawPips) {
+    const p = asObject(entry);
+    if (!isDateKey(p.date)) {
+      onDrop?.({ id: String(p.id ?? ''), date: p.date });
+      continue;
+    }
+    pips.push({
+      id: typeof p.id === 'string' && p.id ? p.id : newId('p'),
+      template_id: String(p.template_id ?? ''),
+      date: p.date,
+      at: Number(p.at) || Date.now(),
+      note: String(p.note ?? '').slice(0, NOTE_MAX),
+      updated_at: Number(p.updated_at) || Date.now(),
+    });
+  }
+
+  return { version: SCHEMA_VERSION, templates, pips };
+}
+
+/**
+ * 判断一个解析出来的值是不是「看起来像 Pip 的数据」。
+ *
+ * 用来区分两种失败：JSON 解析不了，和解析得了但不是我们的结构。后者如果当成
+ * 空数据渲染，用户一点保存就会把原数据覆盖掉——和 TECH 3.5 要防的是同一条链。
+ * 所以两者都算损坏，都要保留原始字符串。
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function looksLikeData(value) {
+  const v = asObject(value);
+  return Array.isArray(v.templates) || Array.isArray(v.pips);
+}
+
+/**
+ * 结构迁移。现在只有 v1，没有历史版本，所以是恒等函数。
+ *
+ * 钩子先留着：将来加版本时在这里串起 `MIGRATIONS[version]`，`load()` 和
+ * `import()` 都会过这里（见 TECH 4.5）。
+ *
+ * @param {PipData} data
+ * @returns {PipData}
+ */
+export function migrate(data) {
+  return data;
 }
