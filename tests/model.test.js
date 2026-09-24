@@ -15,8 +15,12 @@ import {
   TITLE_MAX,
   activeTemplates,
   createPip,
+  createTemplate,
   looksLikeData,
+  nextSortOrder,
   normalize,
+  orderedTemplates,
+  pickColor,
 } from '../js/model.js';
 
 const pip = (over = {}) => ({
@@ -180,4 +184,62 @@ test('activeTemplates 不改动传进来的数组', () => {
   const source = [template({ id: 't_b', sort_order: 1 }), template({ id: 't_a', sort_order: 0 })];
   activeTemplates(source);
   assert.deepEqual(source.map((t) => t.id), ['t_b', 't_a']);
+});
+
+// ─────────────────────────────────────────────────────────
+// 模板管理用的纯函数
+// ─────────────────────────────────────────────────────────
+
+test('orderedTemplates 启用中在前、已停用在后，组内按 sort_order', () => {
+  const list = orderedTemplates([
+    template({ id: 't_arch2', sort_order: 5, archived: true }),
+    template({ id: 't_b', sort_order: 1 }),
+    template({ id: 't_arch1', sort_order: 2, archived: true }),
+    template({ id: 't_a', sort_order: 0 }),
+  ]);
+  assert.deepEqual(list.map((t) => t.id), ['t_a', 't_b', 't_arch1', 't_arch2']);
+});
+
+test('nextSortOrder 排在现有最大的后面', () => {
+  assert.equal(nextSortOrder([]), 0);
+  assert.equal(nextSortOrder([template({ sort_order: 0 })]), 1);
+  assert.equal(nextSortOrder([template({ id: 'a', sort_order: 3 }), template({ id: 'b', sort_order: 1 })]), 4);
+});
+
+test('pickColor 挑第一个没被占用的预设色', () => {
+  assert.equal(pickColor([]), PRESET_COLORS[0]);
+  assert.equal(pickColor([template({ color: PRESET_COLORS[0] })]), PRESET_COLORS[1]);
+  assert.equal(
+    pickColor([template({ color: PRESET_COLORS[1] }), template({ color: PRESET_COLORS[0] })]),
+    PRESET_COLORS[2],
+    '跟占用顺序无关，只看第一个没被用的',
+  );
+});
+
+test('pickColor 在 8 色全被占用时轮回去，不返回 undefined', () => {
+  const all = PRESET_COLORS.map((color, i) => template({ id: `t_${i}`, color }));
+  const picked = pickColor(all);
+  assert.ok(PRESET_COLORS.includes(picked), '必须还是预设色板里的一个');
+});
+
+test('createTemplate 补全字段并自动分配颜色和顺序', () => {
+  const created = createTemplate([template({ color: PRESET_COLORS[0], sort_order: 4 })], {
+    title: '跑步',
+  });
+  assert.ok(created.id.startsWith('t_'));
+  assert.equal(created.title, '跑步');
+  assert.equal(created.icon, '', '图标可选');
+  assert.equal(created.color, PRESET_COLORS[1], '跳过已被占用的颜色');
+  assert.equal(created.archived, false, '新建的一律是启用中');
+  assert.equal(created.sort_order, 5, '排在最后，不打乱已有模板的颜色位置');
+  assert.equal(created.updated_at, created.created_at);
+});
+
+test('createTemplate 认传入的颜色，不在色板里则回落到自动分配', () => {
+  assert.equal(createTemplate([], { title: 'x', color: PRESET_COLORS[3] }).color, PRESET_COLORS[3]);
+  assert.equal(createTemplate([], { title: 'x', color: '#123456' }).color, PRESET_COLORS[0]);
+});
+
+test('createTemplate 截断超长标题', () => {
+  assert.equal(createTemplate([], { title: 'x'.repeat(50) }).title.length, TITLE_MAX);
 });

@@ -12,7 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { COLOR_CLASS, PRESET_COLORS } from '../js/model.js';
+import { COLOR_CLASS, COLOR_NAME, PRESET_COLORS } from '../js/model.js';
 import { dotsForDay } from '../js/views/calendar.js';
 
 const css = fs.readFileSync(new URL('../css/app.css', import.meta.url), 'utf8');
@@ -44,6 +44,15 @@ test('每个 COLOR_CLASS 的值在 app.css 里都有对应规则', () => {
   const declared = new Set(cssPalette().keys());
   for (const cls of Object.values(COLOR_CLASS)) {
     assert.ok(declared.has(cls.replace('pip-', '')), `app.css 缺少 .${cls}`);
+  }
+});
+
+test('COLOR_NAME 的键就是 PRESET_COLORS，且每个都有名字', () => {
+  // 色板选择器是界面上唯一「只有颜色、没有文字」的地方，读屏得念得出颜色名
+  // （PRD 12：颜色不单独承载信息）
+  assert.deepEqual(Object.keys(COLOR_NAME).sort(), [...PRESET_COLORS].sort());
+  for (const [color, name] of Object.entries(COLOR_NAME)) {
+    assert.ok(name.length > 0, `${color} 缺名字`);
   }
 });
 

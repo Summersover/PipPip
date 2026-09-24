@@ -9,7 +9,8 @@ import { clearBanner, mountBanner, showBanner } from './views/banner.js';
 import { renderCalendar, renderCell, renderTitle } from './views/calendar.js';
 import { renderDayList } from './views/day.js';
 import { renderPipCreate } from './views/pip-form.js';
-import { closeAll, hasPage, mountSheet, push, registerPage } from './views/sheet.js';
+import { closeAll, mountSheet, push, registerPage } from './views/sheet.js';
+import { flushPendingEdit, renderTemplateEdit, renderTemplateList } from './views/templates.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
@@ -84,25 +85,40 @@ function renderCellAt(dateKey, pipId) {
 function mountAppHost() {
   mountHost({
     /**
-     * 记录一笔是一个整体流程（PRD 7.2）：落盘 → 日历上多一个点 → 关掉弹窗。
-     * 分开写容易漏掉某一步，所以由这里一次做完。
+     * 落盘 + 重绘。
+     *
+     * 打卡只重绘那一天的格子（TECH 6.2）；模板变更要整片重绘日历——点的颜色和顺序
+     * 都可能变，删模板还会连点一起消失，而这种变更不属于某一天，没有比整片更细的
+     * 粒度可用。
+     *
+     * 刻意**不**在这里关弹窗：打卡要关（PRD 7.2），改模板标题不该关。关不关是各个
+     * 流程自己的事，由视图发 `close-sheet` 意图决定。
      */
-    async write({ dateKey, pipId } = {}) {
+    async write({ dateKey, pipId, calendar } = {}) {
       await persist();
-      if (dateKey) renderCellAt(dateKey, pipId);
-      closeAll();
+      if (calendar) render();
+      else if (dateKey) renderCellAt(dateKey, pipId);
     },
 
-    intent(name) {
-      if (name !== 'new-template') return;
-
-      // 模板弹窗是第 6 步。它还没注册时先挡在 push 之前——push 会抛，而抛在
-      // 按钮的点击里不好看；但也不能静默什么都不做（TECH 11.3）。
-      if (!hasPage('template-edit')) {
-        console.warn('[pip] 模板弹窗还没做（第 6 步），暂时打不开新建模板');
-        return;
+    intent(name, params = {}) {
+      switch (name) {
+        case 'new-template':
+          push('template-edit', {});
+          break;
+        case 'edit-template':
+          push('template-edit', { templateId: params.templateId });
+          break;
+        case 'close-sheet':
+          closeAll();
+          break;
+        case 'back':
+          // 和 header 的返回箭头走同一条路：退一条 history，由 popstate 把栈同步回去
+          history.back();
+          break;
+        default:
+          // 未知意图是写错了，不静默（TECH 11.3）
+          console.warn(`[pip] 未知的跳转意图：${name}`);
       }
-      push('template-edit', {});
     },
   });
 }
@@ -156,6 +172,8 @@ async function boot() {
   mountAppHost();
   registerPage('day-list', renderDayList);
   registerPage('pip-create', renderPipCreate);
+  registerPage('template-list', renderTemplateList);
+  registerPage('template-edit', renderTemplateEdit);
 
   state.prefs = await store.loadPrefs();
   const availability = await store.probe();
@@ -239,9 +257,19 @@ document.getElementById('toolbar-pip')?.addEventListener('click', () => {
   push('pip-create', { dateKey: toDateKey() });
 });
 
+document.getElementById('toolbar-templates')?.addEventListener('click', () => {
+  push('template-list', {});
+});
+
 // 页面重新可见时，如果已经跨过午夜就重绘
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && toDateKey() !== state.todayKey) render();
+  if (document.hidden) {
+    // 被藏起来时补一次还没落盘的编辑：打完字直接切后台不会有失焦，那个值就丢了
+    // （TECH 3.4）。失败了不该打断，所以不 await。
+    void flushPendingEdit();
+    return;
+  }
+  if (toDateKey() !== state.todayKey) render();
 });
 
 void boot();

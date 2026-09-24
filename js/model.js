@@ -91,6 +91,27 @@ export const COLOR_CLASS = {
 };
 
 /**
+ * 色值 → 中文名。名字取自 PRD 9.2 的色板表。
+ *
+ * 给色块一个不依赖颜色本身的可读名（PRD 12：颜色不单独承载信息）——色板选择器是
+ * 界面上唯一「只有颜色、没有文字」的地方，读屏至少要念得出这是什么颜色。
+ *
+ * ★ 键必须和 `PRESET_COLORS` 一致，`tests/calendar.test.js` 会把漂移测出来。
+ *
+ * @type {Record<string, string>}
+ */
+export const COLOR_NAME = {
+  '#E8734A': '珊瑚',
+  '#DFA32B': '琥珀',
+  '#7A9E4A': '苔绿',
+  '#3E8E7E': '松绿',
+  '#4A8FBF': '湖蓝',
+  '#7C6BB8': '靛紫',
+  '#D2607F': '玫红',
+  '#7A7671': '石墨',
+};
+
+/**
  * 生成 id。
  *
  * 用 `crypto.randomUUID()` 而不是时间戳或 `Math.random()`：id 必须保证跨设备
@@ -140,6 +161,69 @@ export function createPip(templateId, dateKey, note = '') {
  */
 export function activeTemplates(templates) {
   return templates.filter((t) => !t.archived).sort((a, b) => a.sort_order - b.sort_order);
+}
+
+/**
+ * 模板列表的展示顺序：启用中在前，已停用在后，组内按 `sort_order`（PRD 7.5）。
+ *
+ * @param {Template[]} templates
+ * @returns {Template[]} 新数组
+ */
+export function orderedTemplates(templates) {
+  return [...templates].sort(
+    (a, b) => Number(a.archived) - Number(b.archived) || a.sort_order - b.sort_order,
+  );
+}
+
+/**
+ * 下一个可用的排序值：排在最后。
+ *
+ * @param {Template[]} templates
+ * @returns {number}
+ */
+export function nextSortOrder(templates) {
+  return templates.reduce((max, t) => Math.max(max, t.sort_order), -1) + 1;
+}
+
+/**
+ * 挑一个还没被占用的预设色（PRD 9.2）。
+ *
+ * 自动分配是为了不让用户对着一个空色板先做一次外观决策。8 个都被占了就按模板数
+ * 取模轮回去——总有颜色可用，不需要新增色。
+ *
+ * @param {Template[]} templates
+ * @returns {string}
+ */
+export function pickColor(templates) {
+  const used = new Set(templates.map((t) => t.color));
+  return (
+    PRESET_COLORS.find((color) => !used.has(color)) ??
+    PRESET_COLORS[templates.length % PRESET_COLORS.length]
+  );
+}
+
+/**
+ * 造一个模板。
+ *
+ * `color` 不传或不在预设色板里就自动分配一个（PRD 9.2）；`sort_order` 排在最后，
+ * 这样新建的模板出现在打卡弹窗的末尾，不打乱已有模板的颜色位置。
+ *
+ * @param {Template[]} templates 现有的全部模板，用来定颜色和顺序
+ * @param {{ title: string, icon?: string, color?: string }} input
+ * @returns {Template}
+ */
+export function createTemplate(templates, { title, icon = '', color }) {
+  const now = Date.now();
+  return {
+    id: newId('t'),
+    title: String(title).slice(0, TITLE_MAX),
+    icon: String(icon),
+    color: typeof color === 'string' && PRESET_COLORS.includes(color) ? color : pickColor(templates),
+    archived: false,
+    sort_order: nextSortOrder(templates),
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 /**

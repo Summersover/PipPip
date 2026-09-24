@@ -864,6 +864,239 @@ button:disabled {
   color: var(--text-secondary);
 }
 
+/* ── 模板管理（templates） ────────────────────────────────── */
+
+.tpl-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 列表行和「＋ 新建模板」是同一个形状（PRD 7.5） */
+.tpl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  /* 44pt 是 iOS 的触摸目标下限 */
+  min-height: 44px;
+  padding: var(--sp-3) 0;
+  font-size: 17px;
+  text-align: left;
+}
+
+.tpl-row:active {
+  background: var(--fill);
+}
+
+.tpl-row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* 标题上限 20 字，得让它能收缩并截断，否则会把色点和 › 挤出屏幕 */
+  min-width: 0;
+}
+
+.tpl-row-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* 没设 emoji 时的色点。和 .day-icon.pip 一样用双类选择器压过 .pip 的 7px 尺寸。 */
+.tpl-row-dot.pip,
+.tpl-row-color.pip {
+  width: 10px;
+  height: 10px;
+}
+
+.tpl-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 已停用：整行退到次级色，标题后面挂「已停用」（PRD 7.5 / 11） */
+.tpl-row.is-archived {
+  color: var(--text-secondary);
+}
+
+.tpl-tag {
+  flex: none;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.tpl-row-color,
+.tpl-chevron {
+  flex: none;
+}
+
+.tpl-chevron {
+  color: var(--text-tertiary);
+}
+
+/* 新建是低频动作，做成列表末尾的一行，文字用次级色（PRD 7.5） */
+.tpl-row--new {
+  color: var(--text-secondary);
+}
+
+/* ── 模板编辑表单 ─────────────────────────────────────────── */
+
+.tpl-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.tpl-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.tpl-field-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tpl-input {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--bg);
+  color: var(--text);
+  /* 16px 是硬性下限：更小的话 iOS Safari 在聚焦时会自动放大页面（PRD 9.3） */
+  font-size: 16px;
+  font-family: inherit;
+  appearance: none;
+}
+
+.tpl-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* 8 个色块排一行。可点区域做满 44×44（PRD 9.4），里面画 28px 的圆；
+   space-between 把它们摊满一行，390px 屏上圆与圆之间约 19px 空隙。 */
+.tpl-swatches {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tpl-swatch {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+
+.tpl-swatch-dot.pip {
+  width: 28px;
+  height: 28px;
+}
+
+/* 选中环。用 outline 而不是 border——border 会改变盒模型尺寸，8 个圆就不再等距。
+   环走中性色：界面上带颜色的只有模板色本身（PRD 9.1）。 */
+.tpl-swatch-dot.is-picked {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.tpl-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* 动作行：动作名 + 一行说明。停用和删除的区别必须写在界面上（PRD 7.5）。 */
+.tpl-action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-2) 0;
+  text-align: left;
+}
+
+.tpl-action:active {
+  background: var(--fill);
+}
+
+.tpl-action-label {
+  font-size: 17px;
+}
+
+.tpl-action-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* 删除是全项目唯一不可逆的操作（PRD 7.5） */
+.tpl-action.is-danger .tpl-action-label {
+  color: var(--danger);
+}
+
+/* 删除确认。用底色深浅分层，不用边框和阴影（PRD 9.1）。 */
+.tpl-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--r-card);
+  background: var(--bg);
+}
+
+.tpl-confirm-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.tpl-confirm-body {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.tpl-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* 次按钮：透明底 + 主文字色。全项目没有描边按钮（PRD 9.5）。 */
+.btn-secondary,
+.btn-danger {
+  min-width: 88px;
+  height: 44px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-btn);
+  font-size: 17px;
+}
+
+.btn-secondary {
+  color: var(--text);
+}
+
+/* 确认里那颗删除用危险色文字，不用实底：实底要配一个反白文字色，而 --danger 在
+   深浅两套主题下明度差得多，白字在其中一套上会糊掉。 */
+.btn-danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.btn-secondary:active,
+.btn-danger:active {
+  background: var(--fill);
+}
+
 /* ── 响应式 ───────────────────────────────────────────────── */
 
 /* 手机优先，375–430px 是设计基准。桌面居中，日历保持 7 列不变形。 */

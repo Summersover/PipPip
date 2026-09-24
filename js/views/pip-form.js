@@ -135,7 +135,14 @@ function buildNoteStep(template, dateKey, onBack, onSubmit) {
     // 落盘是异步的，连点两下会记成两条。所以先禁掉；写入被拦下（只读模式）时
     // 再放回来，否则用户就卡在这一步了。
     confirm.disabled = true;
-    if (!(await onSubmit(note.value))) confirm.disabled = false;
+    const ok = await onSubmit(note.value);
+    if (!ok) {
+      confirm.disabled = false;
+      return;
+    }
+    // 「记一条 → 弹窗关闭」是 PRD 7.2 的一个整体流程，但关不关是流程自己的事，
+    // 所以由这里发意图，而不是塞进 state.addPip 里。
+    intent('close-sheet');
   });
 
   wrap.append(picked, target, note, confirm);

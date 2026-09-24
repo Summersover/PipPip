@@ -70,19 +70,6 @@ export function registerPage(name, renderer) {
 }
 
 /**
- * 这个页面注册了没有。
- *
- * 给「功能还没做到」的入口用：挡在 push 之前，而不是让 push 抛出去。比
- * `push` 里的 throw 温和，但调用方**不能借此静默什么都不做**（TECH 11.3）。
- *
- * @param {string} name
- * @returns {boolean}
- */
-export function hasPage(name) {
-  return pages.has(name);
-}
-
-/**
  * 从文档里取好元素并接上事件。启动时调一次。
  */
 export function mountSheet() {
@@ -113,6 +100,11 @@ export function mountSheet() {
   attachDrag();
 
   window.addEventListener('popstate', onPopstate);
+
+  // 清掉可能残留的弹窗深度标记。reload 时历史记录的 state 会保留下来，而应用是
+  // 从空栈起来的，那个标记按定义已经过期——不清的话栈深和 history 对不上，用户
+  // 要多按一次返回键才关得掉弹窗。
+  if (historyDepth() !== 0) history.replaceState(null, '');
 }
 
 /** 栈深。 */

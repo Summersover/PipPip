@@ -6,7 +6,13 @@
  */
 
 import { toDateKey } from './dates.js';
-import { SCHEMA_VERSION, createPip, groupPipsByDate, indexTemplates } from './model.js';
+import {
+  SCHEMA_VERSION,
+  createPip,
+  createTemplate,
+  groupPipsByDate,
+  indexTemplates,
+} from './model.js';
 
 export const state = {
   /** @type {import('./model.js').PipData} */
@@ -78,10 +84,10 @@ export function refreshToday() {
 
 /**
  * @typedef {object} AppHost
- * @property {(changed: { dateKey?: string, pipId?: string }) => Promise<void>} write
- *   数据改了：落盘 + 重绘受影响的视图。
+ * @property {(changed: { dateKey?: string, pipId?: string, calendar?: boolean }) => Promise<void>} write
+ *   数据改了：落盘 + 重绘受影响的视图。`calendar` 表示整片重绘日历（模板变更用）。
  * @property {(name: string, params?: Record<string, unknown>) => void} intent
- *   跳转意图：开某个 sheet 页面。
+ *   跳转意图：开某个 sheet 页面，或退一层、关掉。
  */
 
 /** @type {AppHost} */
@@ -141,6 +147,84 @@ export async function addPip(templateId, dateKey, note = '') {
 
   await app.write({ dateKey, pipId: pip.id });
   return true;
+}
+
+/**
+ * 新建一个模板。颜色不传就自动分配一个还没被占用的（PRD 9.2）。
+ *
+ * @param {{ title: string, icon?: string, color?: string }} input
+ * @returns {Promise<import('./model.js').Template | null>} 只读模式下返回 null
+ */
+export async function addTemplate(input) {
+  if (state.readOnly) return null;
+
+  const template = createTemplate(state.data.templates, input);
+  state.data.templates.push(template);
+  reindex();
+
+  await app.write({ calendar: true });
+  return template;
+}
+
+/**
+ * 改一个模板。
+ *
+ * **只有真的变了才写。** 失焦时值没动是常态（点一下输入框又移开），每次都写会把
+ * 当前主值一遍遍推进 backup，那份退路就被同样的内容填满了。
+ *
+ * @param {string} id
+ * @param {{ title?: string, icon?: string, color?: string, archived?: boolean }} patch
+ * @returns {Promise<boolean>} 是否真的落盘了
+ */
+export async function updateTemplate(id, patch) {
+  if (state.readOnly) return false;
+
+  const template = state.data.templates.find((t) => t.id === id);
+  if (!template) return false;
+
+  const next = {
+    title: patch.title ?? template.title,
+    icon: patch.icon ?? template.icon,
+    color: patch.color ?? template.color,
+    archived: patch.archived ?? template.archived,
+  };
+  const changed =
+    next.title !== template.title ||
+    next.icon !== template.icon ||
+    next.color !== template.color ||
+    next.archived !== template.archived;
+  if (!changed) return false;
+
+  Object.assign(template, next, { updated_at: Date.now() });
+  reindex();
+
+  await app.write({ calendar: true });
+  return true;
+}
+
+/**
+ * 删一个模板，**连它的记录一起删**（PRD 7.5）。
+ *
+ * 这是全项目唯一会连带删掉用户数据的操作，二次确认由界面负责，这里只管删。
+ * 日常想「不想再打了」用停用：停用不删记录，所以随时能恢复——这也是这个设计里
+ * 不存在孤儿记录的原因。
+ *
+ * @param {string} id
+ * @returns {Promise<number>} 一起删掉的记录条数
+ */
+export async function removeTemplate(id) {
+  if (state.readOnly) return 0;
+
+  const pos = state.data.templates.findIndex((t) => t.id === id);
+  if (pos === -1) return 0;
+
+  const removed = state.data.pips.filter((p) => p.template_id === id).length;
+  state.data.templates.splice(pos, 1);
+  state.data.pips = state.data.pips.filter((p) => p.template_id !== id);
+  reindex();
+
+  await app.write({ calendar: true });
+  return removed;
 }
 
 /** 把浏览位置拨回当月。 */
