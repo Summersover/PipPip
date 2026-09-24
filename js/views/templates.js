@@ -402,7 +402,7 @@ export function renderTemplateEdit(params) {
     );
 
     const remove = buildAction(
-      '删除这个模板',
+      '删除',
       // 一条记录都没有时不说「连这项的 0 条」，那句话没有信息量
       count > 0 ? `连这项的 ${count} 条记录一起删掉，无法恢复` : '无法恢复',
       true,

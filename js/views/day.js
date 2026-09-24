@@ -2,7 +2,7 @@
  * 某日记录列表与打卡详情（PRD 7.3 / 7.4）。
  *
  * 两个 sheet 页面：
- * - `day-list`   某天的全部记录，按时间正序（早 → 晚，像日记），底部「＋ 添加打卡」
+ * - `day-list`   某天的全部记录，按时间正序（早 → 晚，像日记），底部「＋ Pip一下」
  * - `pip-detail` 单条记录的详情：改备注、删记录
  *
  * 写入走 state 的 updatePipNote / removePip，跳转走 state 的 intent——视图既不
@@ -91,7 +91,7 @@ function buildRow(pip) {
 }
 
 /**
- * 底部的「＋ 添加打卡」。目标日期是这一天，补记就走它（PRD 7.2 / 7.3）。
+ * 底部的「＋ Pip一下」。目标日期是这一天，补记就走它（PRD 7.2 / 7.3）。
  *
  * @param {import('../dates.js').DateKey} dateKey
  * @returns {HTMLButtonElement}
@@ -100,7 +100,7 @@ function buildAddButton(dateKey) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'day-add';
-  btn.textContent = '＋ 添加打卡';
+  btn.textContent = '＋ Pip一下';
   btn.addEventListener('click', () => intent('new-pip', { dateKey }));
   return btn;
 }
@@ -197,7 +197,7 @@ export function renderPipDetail(params) {
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'pip-detail-remove';
-  remove.textContent = '删除这条记录';
+  remove.textContent = '删除';
   remove.addEventListener('click', async () => {
     await removePip(pip.id);
     // 这条记录已经没了，那个补写动作再跑一次只是白跑

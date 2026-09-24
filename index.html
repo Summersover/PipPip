@@ -67,19 +67,20 @@
         </svg>
         <span>模板</span>
       </button>
-      <button class="toolbar-btn toolbar-btn--primary" id="toolbar-pip" type="button">
+      <!-- 可见文字是产品名 Pip，但读屏需要知道这一按是干什么的（PRD 12）。
+           aria-label 里带上可见文字，不违背「可访问名要包含可见标签」。 -->
+    <button class="toolbar-btn toolbar-btn--primary" id="toolbar-pip" type="button" aria-label="Pip，记一笔">
         <span class="toolbar-pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
             <path d="M12 5.5v13M5.5 12h13"/>
           </svg>
         </span>
-        <span>打卡</span>
+        <span>Pip</span>
       </button>
       <button class="toolbar-btn" id="toolbar-settings" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
-          <path d="M4 8h16M4 16h16"/>
-          <circle cx="9" cy="8" r="2.5"/>
-          <circle cx="15" cy="16" r="2.5"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21.2 12L16.6 20H7.4L2.8 12L7.4 4H16.6Z"/>
+          <circle cx="12" cy="12" r="3.4"/>
         </svg>
         <span>设置</span>
       </button>

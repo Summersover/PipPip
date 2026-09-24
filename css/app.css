@@ -503,7 +503,7 @@ button:disabled {
   color: var(--text);
 }
 
-/* 「打卡」是主动作：图标装进一枚强调色胶囊，文字用强调色。
+/* 「Pip」是主动作：图标装进一枚强调色胶囊，文字用强调色。
    比另外两个突出，但不用投影、不放大。 */
 .toolbar-btn--primary {
   color: var(--accent);
@@ -727,7 +727,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* 底部的「＋ 添加打卡」。用强调色——它通向的是产品的主操作，而 PRD 9.1 把强调色
+/* 底部的「＋ Pip一下」。用强调色——它通向的是产品的主操作，而 PRD 9.1 把强调色
    留给「今天」的填充圆和打卡动作。居中排，和 PRD 7.3 的示意图一致。 */
 .day-add {
   display: block;
