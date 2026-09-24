@@ -99,7 +99,7 @@ function buildRow(pip) {
 function buildAddButton(dateKey) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'day-add';
+  btn.className = 'btn-primary';
   btn.textContent = '＋ Pip一下';
   btn.addEventListener('click', () => intent('new-pip', { dateKey }));
   return btn;

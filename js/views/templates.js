@@ -349,7 +349,7 @@ export function renderTemplateEdit(params) {
     const confirm = document.createElement('button');
     confirm.type = 'button';
     confirm.className = 'btn-primary';
-    confirm.textContent = '确定';
+    confirm.textContent = '＋ 确定';
     confirm.disabled = title.input.value.trim() === '';
     title.input.addEventListener('input', () => {
       confirm.disabled = title.input.value.trim() === '';
@@ -367,9 +367,8 @@ export function renderTemplateEdit(params) {
       }
       intent('back');
     });
-    wrap.append(confirm);
-
-    return { title: '新建模板', body: wrap };
+    // 确定固定在卡片底边，不跟着表单滚（PRD 9.5）
+    return { title: '新建模板', body: wrap, footer: confirm };
   }
 
   // ── 编辑：失焦保存 + 停用/删除 ────────────────────────────

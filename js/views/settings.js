@@ -276,7 +276,7 @@ function buildDataSection() {
     const submit = document.createElement('button');
     submit.type = 'button';
     submit.className = 'btn-primary';
-    submit.textContent = '导入';
+    submit.textContent = '＋ 导入';
     submit.addEventListener('click', async () => {
       submit.disabled = true;
       const incoming = /** @type {import('../model.js').PipData} */ (pending);

@@ -683,7 +683,9 @@ button:disabled {
    分隔就够了（PRD 9.1 的「不用边框划分区块，用间距」）。 */
 .sheet-footer {
   flex: none;
-  padding: 0 var(--sp-4) var(--sp-3);
+  /* 下边距 20px 而不是 12px：主按钮是实心胶囊，贴着卡片底边看着太挤。20 也正好和
+     卡片自己的圆角半径对齐，四条边的呼吸感一致。 */
+  padding: 0 var(--sp-4) var(--sp-5);
 }
 
 .sheet-footer[hidden] {
@@ -785,22 +787,6 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 底部的「＋ Pip一下」。用强调色——它通向的是产品的主操作，而 PRD 9.1 把强调色
-   留给「今天」的填充圆和打卡动作。居中排，和 PRD 7.3 的示意图一致。 */
-.day-add {
-  display: block;
-  width: 100%;
-  min-height: 44px;
-  padding: var(--sp-3) 0;
-  font-size: 17px;
-  color: var(--accent);
-  text-align: center;
-}
-
-.day-add:active {
-  background: var(--fill);
 }
 
 /* ── 打卡详情（pip-detail） ───────────────────────────────── */
@@ -1156,22 +1142,22 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-/* 主按钮：强调色实底 + 反白文字，高 48px（PRD 9.5）。全项目只有这一种按钮，
-   没有描边按钮。 */
+/* 主按钮：**纯文字一行**，强调色文字、居中、无底色——和底栏那颗「＋ Pip一下」同一个
+   长相（PRD 9.5）。它不再是实心强调色胶囊：那样界面上就多出一块大面积颜色，而 9.1 说
+   颜色归点，强调色只留给「今天」的填充圆和底部那颗 Pip 胶囊。
+   整行还顺带把点击区横向铺满，比一颗小胶囊好按。 */
 .btn-primary {
   display: block;
   width: 100%;
-  height: 48px;
-  border-radius: var(--r-btn);
-  background: var(--accent);
-  color: var(--on-accent);
+  min-height: 44px;
+  padding: var(--sp-3) 0;
   font-size: 17px;
-  font-weight: 600;
-  transition: opacity 120ms ease-out;
+  color: var(--accent);
+  text-align: center;
 }
 
 .btn-primary:active {
-  opacity: 0.88;
+  background: var(--fill);
 }
 
 /* 落盘是异步的，确定按下去到弹窗关闭之间有一小段，禁掉防止连点记成两条 */
@@ -1273,9 +1259,12 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-/* 新建是低频动作，做成列表末尾的一行，文字用次级色（PRD 7.5） */
+/* 新建是低频动作，做成底栏里的一行，文字用次级色（PRD 7.5）。
+   左右居中，和某日列表底边那颗「＋ Pip一下」同一个处理——它是底栏动作，不再是列表
+   里的一行，居中和上面的列表行也能一眼分开。 */
 .tpl-row--new {
   color: var(--text-secondary);
+  justify-content: center;
 }
 
 /* ── 模板编辑表单 ─────────────────────────────────────────── */

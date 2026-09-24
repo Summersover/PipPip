@@ -88,15 +88,17 @@ function buildTile(template, onPick) {
 }
 
 /**
- * 第二步：已选模板 + 目标日期 + 备注 + 确定。
+ * 第二步的正文：已选模板 + 目标日期 + 备注框。
+ *
+ * **「确定」不在这儿**——它在底栏（见 `buildConfirmButton`）。把出口和内容分开，内容再长
+ * 也不会把按钮挤到需要滚一下才看得见的地方。
  *
  * @param {import('../model.js').Template} template
  * @param {import('../dates.js').DateKey} dateKey
  * @param {() => void} onBack 点顶部的已选模板回第一步换一个（PRD 7.2）
- * @param {(note: string) => Promise<boolean>} onSubmit
- * @returns {HTMLDivElement}
+ * @returns {{ el: HTMLDivElement, note: HTMLTextAreaElement }}
  */
-function buildNoteStep(template, dateKey, onBack, onSubmit) {
+function buildNoteStep(template, dateKey, onBack) {
   const wrap = document.createElement('div');
 
   const picked = document.createElement('button');
@@ -127,15 +129,30 @@ function buildNoteStep(template, dateKey, onBack, onSubmit) {
   note.maxLength = NOTE_MAX;
   note.placeholder = '今天做了什么？';
 
+  wrap.append(picked, target, note);
+  return { el: wrap, note };
+}
+
+/**
+ * 底栏里的那颗「确定」。
+ *
+ * 放在底栏而不是跟在备注框后面，理由见 buildNoteStep。备注框在正文里，所以这里用回调
+ * 按需取值，而不是把它抓在手里。
+ *
+ * @param {() => string} readNote
+ * @param {(note: string) => Promise<boolean>} onSubmit
+ * @returns {HTMLButtonElement}
+ */
+function buildConfirmButton(readNote, onSubmit) {
   const confirm = document.createElement('button');
   confirm.type = 'button';
   confirm.className = 'btn-primary';
-  confirm.textContent = '确定';
+  confirm.textContent = '＋ 确定';
   confirm.addEventListener('click', async () => {
     // 落盘是异步的，连点两下会记成两条。所以先禁掉；写入被拦下（只读模式）时
     // 再放回来，否则用户就卡在这一步了。
     confirm.disabled = true;
-    const ok = await onSubmit(note.value);
+    const ok = await onSubmit(readNote());
     if (!ok) {
       confirm.disabled = false;
       return;
@@ -144,9 +161,7 @@ function buildNoteStep(template, dateKey, onBack, onSubmit) {
     // 所以由这里发意图，而不是塞进 state.addPip 里。
     intent('close-sheet');
   });
-
-  wrap.append(picked, target, note, confirm);
-  return wrap;
+  return confirm;
 }
 
 /**
@@ -155,7 +170,7 @@ function buildNoteStep(template, dateKey, onBack, onSubmit) {
  * 「新建模板」要开模板弹窗，那是第 6 步的页面，所以走意图而不是直接调 sheet。
  * 页面还没注册时由 app.js 挡住并 warn，不会抛错。
  *
- * @returns {HTMLDivElement}
+ * @returns {{ el: HTMLDivElement, button: HTMLButtonElement }} 按钮给底栏，正文给卡片中间
  */
 function buildEmptyState() {
   const wrap = document.createElement('div');
@@ -172,11 +187,11 @@ function buildEmptyState() {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-primary';
-  btn.textContent = '新建模板';
+  btn.textContent = '＋ 新建模板';
   btn.addEventListener('click', () => intent('new-template'));
 
-  wrap.append(title, hint, btn);
-  return wrap;
+  wrap.append(title, hint);
+  return { el: wrap, button: btn };
 }
 
 /**
@@ -192,10 +207,14 @@ export function renderPipCreate(params) {
   const templates = activeTemplates(state.data.templates);
 
   const wrap = document.createElement('div');
+  // 底栏只建一次，然后交给 sheet.js 搬进卡片底栏；换步骤时只换它里面的内容，引用一直有效
+  const footer = document.createElement('div');
 
   if (templates.length === 0) {
-    wrap.append(buildEmptyState());
-    return { title: '选择模板', body: wrap };
+    const empty = buildEmptyState();
+    wrap.append(empty.el);
+    footer.append(empty.button);
+    return { title: '选择模板', body: wrap, footer };
   }
 
   // 首屏不播入场动画：sheet 页面本身已经播过一次了（sheet.js 的 renderStack），
@@ -214,12 +233,17 @@ export function renderPipCreate(params) {
     firstRender = false;
 
     if (picked) {
-      step.append(
-        buildNoteStep(picked, dateKey, () => showStep(null, 'back'), (note) =>
-          addPip(picked.id, dateKey, note),
+      const noteStep = buildNoteStep(picked, dateKey, () => showStep(null, 'back'));
+      footer.replaceChildren(
+        buildConfirmButton(
+          () => noteStep.note.value,
+          (note) => addPip(picked.id, dateKey, note),
         ),
       );
+      step.append(noteStep.el);
     } else {
+      // 第一步没有主动作——模板方块本身就是那一步的动作
+      footer.replaceChildren();
       const list = document.createElement('ul');
       list.className = 'tpl-grid';
       for (const template of templates) {
@@ -232,5 +256,5 @@ export function renderPipCreate(params) {
   }
 
   showStep(null, 'forward');
-  return { title: '选择模板', body: wrap };
+  return { title: '选择模板', body: wrap, footer };
 }
