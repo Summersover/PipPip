@@ -226,6 +226,62 @@ function shiftMonth(delta) {
 }
 
 // ─────────────────────────────────────────────────────────
+// PWA
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 注册 service worker，并处理新版本。
+ *
+ * 两件必须做对的事（TECH 8.3）：
+ * - **绝不自动 `skipWaiting()`**：新 SW 在用户正开着应用时接管，已加载的旧页面会和新的
+ *   缓存内容不一致，可能直接崩。必须等用户点「刷新」
+ * - `controllerchange` 的 reload 只执行一次，否则可能循环刷新
+ */
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+
+  /** @type {ServiceWorkerRegistration} */
+  let reg;
+  try {
+    reg = await navigator.serviceWorker.register('./sw.js');
+  } catch (e) {
+    // 静默降级：应用照常能用，只是没有离线能力。不弹错给用户（TECH 11.1）
+    console.warn('[pip] service worker 注册失败，离线能力不可用', e);
+    return;
+  }
+
+  /** @param {ServiceWorker} worker */
+  const notifyUpdate = (worker) => {
+    showBanner({
+      kind: 'update',
+      message: '有新版本',
+      actions: [{ label: '刷新', onClick: () => worker.postMessage({ type: 'SKIP_WAITING' }) }],
+    });
+  };
+
+  // 上次没点刷新就关掉的那次更新，也要提示
+  if (reg.waiting) notifyUpdate(reg.waiting);
+
+  reg.addEventListener('updatefound', () => {
+    const installing = reg.installing;
+    if (!installing) return;
+    installing.addEventListener('statechange', () => {
+      // controller 存在说明这是更新，不是首次安装
+      if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+        notifyUpdate(installing);
+      }
+    });
+  });
+
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+}
+
+// ─────────────────────────────────────────────────────────
 // 启动
 // ─────────────────────────────────────────────────────────
 
@@ -315,6 +371,13 @@ async function boot() {
   reindex();
   goToday();
   render();
+
+  // 尽力而为：iOS 基本不理会这个调用，但 Android Chrome 上它能显著降低存储被清理的
+  // 概率（TECH 8.5）。iOS 那边的清理问题靠「必须添加到主屏幕」解决——主屏幕应用被豁免。
+  navigator.storage?.persist?.().catch((e) => console.warn('[pip] 申请持久化存储失败', e));
+
+  // 放最后：注册和预缓存不该拖慢首屏
+  void registerServiceWorker();
 }
 
 // ─────────────────────────────────────────────────────────

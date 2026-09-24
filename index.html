@@ -14,6 +14,16 @@
      即使将来误加了网络代码也会被浏览器拦下。见 TECH 14。 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
 
+<!-- PWA。路径一律相对：站点在 summersover.github.io/PipPip/ 下，写 / 会指向域名根（TECH 13.2） -->
+<link rel="manifest" href="./manifest.webmanifest">
+<!-- iOS 不读 manifest 里的 icons，必须单独给一份 180×180 的（TECH 8.1） -->
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!-- 全屏运行、无地址栏。manifest 的 display 在新 iOS 上够用，但 apple- 前缀那个才是
+     iOS 一贯认的，两个都写。 -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
 <link rel="stylesheet" href="./css/app.css">
 <!-- 必须在 CSS 之后、且是阻塞式脚本：首次绘制前把 data-theme 定好，否则深色模式会闪白 -->
 <script src="./js/theme-boot.js"></script>
