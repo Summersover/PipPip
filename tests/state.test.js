@@ -16,6 +16,7 @@ import {
   addPip,
   addTemplate,
   flushPending,
+  importData,
   index,
   mountHost,
   removePip,
@@ -23,6 +24,7 @@ import {
   setPendingFlush,
   state,
   updatePipNote,
+  updatePrefs,
   updateTemplate,
 } from '../js/state.js';
 
@@ -32,6 +34,7 @@ let writes = [];
 function reset() {
   writes = [];
   state.data = { version: 1, templates: [], pips: [] };
+  state.prefs = { theme: 'system' };
   state.readOnly = false;
   setPendingFlush(null);
   mountHost({
@@ -40,6 +43,12 @@ function reset() {
     },
     intent() {
       /* 这一组不关心跳转 */
+    },
+    async backup() {
+      /* 只有导入用得上，单独在用例里替换 */
+    },
+    async prefs() {
+      /* 同上 */
     },
   });
 }
@@ -237,4 +246,85 @@ test('登记被清掉之后 flushPending 是空操作', async () => {
 
   await flushPending();
   assert.equal(calls, 0);
+});
+
+// ─────────────────────────────────────────────────────────
+// 导入与偏好
+// ─────────────────────────────────────────────────────────
+
+test('importData 合并时取并集，覆盖时整份换掉', async () => {
+  const incoming = {
+    version: 1,
+    templates: [template({ id: 't_b', sort_order: 1 })],
+    pips: [pip({ id: 'p_2' })],
+  };
+
+  reset();
+  state.data = { version: 1, templates: [template()], pips: [pip()] };
+  assert.equal(await importData(incoming, 'merge'), true);
+  assert.deepEqual(state.data.templates.map((t) => t.id), ['t_a', 't_b']);
+  assert.deepEqual(state.data.pips.map((p) => p.id).sort(), ['p_1', 'p_2']);
+  assert.deepEqual(writes, [{ calendar: true }], '导入后要整片重绘日历');
+
+  reset();
+  state.data = { version: 1, templates: [template()], pips: [pip()] };
+  await importData(incoming, 'replace');
+  assert.deepEqual(state.data.templates.map((t) => t.id), ['t_b'], '覆盖是整份替换');
+  assert.deepEqual(state.data.pips.map((p) => p.id), ['p_2']);
+});
+
+test('导入之前一定先备份', async () => {
+  // 选「覆盖」又选错文件，是唯一能一次毁掉全部数据的操作（TECH 9.2）
+  reset();
+  /** @type {string[]} */
+  const order = [];
+  mountHost({
+    async write() {
+      order.push('write');
+    },
+    intent() {},
+    async backup() {
+      order.push('backup');
+    },
+    async prefs() {},
+  });
+
+  await importData({ version: 1, templates: [], pips: [] }, 'replace');
+  assert.deepEqual(order, ['backup', 'write'], '备份必须在写入之前');
+});
+
+test('只读模式下导入被拦掉，也不备份', async () => {
+  reset();
+  state.readOnly = true;
+  assert.equal(await importData({ version: 1, templates: [], pips: [] }, 'replace'), false);
+  assert.deepEqual(writes, []);
+});
+
+test('updatePrefs 合进 state.prefs 并交给 app 保存', async () => {
+  reset();
+  /** @type {import('../js/store.js').Prefs | null} */
+  let saved = null;
+  mountHost({
+    async write() {},
+    intent() {},
+    async backup() {},
+    async prefs(next) {
+      saved = next;
+    },
+  });
+
+  await updatePrefs({ theme: 'dark' });
+  assert.equal(state.prefs.theme, 'dark');
+  assert.deepEqual(saved, { theme: 'dark' });
+
+  await updatePrefs({ lastExportAt: 123 });
+  assert.deepEqual(saved, { theme: 'dark', lastExportAt: 123 }, '第二次改不该把主题丢掉');
+});
+
+test('只读模式下也能改主题', async () => {
+  // 偏好存在自己的 key 里、不碰数据，所以不受只读模式影响（TECH 3.2 / 3.5）
+  reset();
+  state.readOnly = true;
+  await updatePrefs({ theme: 'light' });
+  assert.equal(state.prefs.theme, 'light');
 });

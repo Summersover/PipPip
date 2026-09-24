@@ -149,6 +149,19 @@ button:disabled {
   flex-direction: column;
 }
 
+/* 两个视图：月历（首页）与设置页。设置是整屏替换，不是弹窗（PRD 6）。 */
+.view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 这条必须显式写。上面的 display: flex 是作者样式，会盖掉浏览器默认的
+   [hidden] { display: none }——和 .icon-btn 那次是同一个坑。 */
+.view[hidden] {
+  display: none;
+}
+
 /* ── 顶部横幅 ─────────────────────────────────────────────── */
 
 .banner {
@@ -776,6 +789,168 @@ button:disabled {
   background: var(--fill);
 }
 
+/* ── 设置页（settings） ───────────────────────────────────── */
+
+/* 和 .cal-header 同一个处理：不设底色、不设顶边。内容在 .settings-body 里自己滚，
+   不会滚到它下面，所以不需要发丝线（PRD 9.1）。 */
+.settings-header {
+  display: grid;
+  /* 三列：返回按钮 44px、标题、右侧一个等宽空列。标题因此永远落在中线上。 */
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  padding: var(--sp-4) 0 var(--sp-6);
+}
+
+.settings-header > .icon-btn {
+  grid-column: 1;
+  /* 贴屏幕左边：44×44 的触摸区从边缘起算，图标再往内让 8px */
+  justify-items: start;
+  padding-left: var(--sp-2);
+}
+
+.settings-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  overflow-y: auto;
+  padding: 0 var(--sp-4) var(--sp-8);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* flex: none：滚动容器里的子项默认可以被压扁 */
+.settings-section {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.settings-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.settings-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 导出提醒常驻可见（PRD 7.6）。超过 30 天变红。 */
+.settings-reminder {
+  margin: 0 0 var(--sp-4);
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.settings-reminder.is-overdue {
+  color: var(--danger);
+}
+
+/* ── 单选行 ───────────────────────────────────────────────── */
+
+.choices {
+  display: flex;
+  flex-direction: column;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-3) 0;
+  text-align: left;
+}
+
+.choice:active {
+  background: var(--fill);
+}
+
+/* 选中的线索之一，另一个是文字色深浅——不靠颜色单独承载信息（PRD 12）。
+   margin-top 让点对齐第一行文字的视觉中线，多行时也不会跑到两行之间。 */
+.choice-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.choice[aria-pressed='true'] .choice-dot {
+  background: var(--text);
+}
+
+.choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.choice-label {
+  font-size: 17px;
+  color: var(--text-secondary);
+}
+
+.choice[aria-pressed='true'] .choice-label {
+  color: var(--text);
+}
+
+.choice-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ── 导入面板 ─────────────────────────────────────────────── */
+
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--r-card);
+  /* 用底色深浅分层，不用边框和阴影（PRD 9.1） */
+  background: var(--bg);
+}
+
+/* 上面的 display: flex 会盖掉 [hidden]，必须显式写回来（同 .view） */
+.import-panel[hidden] {
+  display: none;
+}
+
+.import-file {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  /* 文件名可能很长，别把面板撑破 */
+  overflow-wrap: anywhere;
+}
+
+.import-note {
+  margin: var(--sp-4) 0 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.import-note.is-error {
+  color: var(--danger);
+}
+
 /* ── 打卡流程（pip-form） ──────────────────────────────────── */
 
 /* 两步之间的切换，复用 sheet 页面那套关键帧，所以是 180ms ease-out（PRD 9.6）。
@@ -1119,8 +1294,11 @@ button:disabled {
   gap: var(--sp-5);
 }
 
-/* 动作行：动作名 + 一行说明。停用和删除的区别必须写在界面上（PRD 7.5）。 */
-.tpl-action {
+/* ── 动作行 ───────────────────────────────────────────────── */
+
+/* 通用件：模板表单的停用/删除、设置页的导出/导入都用。
+   动作名 + 一行说明——停用和删除的区别必须写在界面上（PRD 7.5）。 */
+.action {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
@@ -1130,21 +1308,21 @@ button:disabled {
   text-align: left;
 }
 
-.tpl-action:active {
+.action:active {
   background: var(--fill);
 }
 
-.tpl-action-label {
+.action-label {
   font-size: 17px;
 }
 
-.tpl-action-hint {
+.action-hint {
   font-size: 13px;
   color: var(--text-secondary);
 }
 
 /* 删除是全项目唯一不可逆的操作（PRD 7.5） */
-.tpl-action.is-danger .tpl-action-label {
+.action.is-danger .action-label {
   color: var(--danger);
 }
 

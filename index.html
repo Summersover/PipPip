@@ -22,54 +22,73 @@
 
 <main class="app">
 
-  <!-- 数据安全相关的提示常驻在顶部，不可关闭（TECH 11.2） -->
+  <!-- 数据安全相关的提示常驻在顶部，不可关闭（TECH 11.2）。放在两个视图之上，
+       切到设置页也照样看得到。 -->
   <div class="banner" id="banner" role="alert" hidden></div>
 
-  <header class="cal-header">
-    <button class="icon-btn" id="prev-month" type="button" aria-label="上个月">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M14.5 5.5 8 12l6.5 6.5"/>
-      </svg>
-    </button>
-    <h1 class="cal-title" id="cal-title"></h1>
-    <button class="icon-btn" id="next-month" type="button" aria-label="下个月">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M9.5 5.5 16 12l-6.5 6.5"/>
-      </svg>
-    </button>
-  </header>
+  <!-- 首页：月历。设置页是整屏替换它，不是弹窗（PRD 6）。 -->
+  <div class="view" id="view-calendar">
 
-  <div class="cal-body">
-    <table class="cal-grid" id="cal-grid"></table>
+    <header class="cal-header">
+      <button class="icon-btn" id="prev-month" type="button" aria-label="上个月">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14.5 5.5 8 12l6.5 6.5"/>
+        </svg>
+      </button>
+      <h1 class="cal-title" id="cal-title"></h1>
+      <button class="icon-btn" id="next-month" type="button" aria-label="下个月">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9.5 5.5 16 12l-6.5 6.5"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="cal-body">
+      <table class="cal-grid" id="cal-grid"></table>
+    </div>
+
+    <nav class="toolbar" aria-label="主导航">
+      <button class="toolbar-btn" id="toolbar-templates" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <rect x="3.5" y="3.5" width="7" height="7" rx="2"/>
+          <rect x="13.5" y="3.5" width="7" height="7" rx="2"/>
+          <rect x="3.5" y="13.5" width="7" height="7" rx="2"/>
+          <rect x="13.5" y="13.5" width="7" height="7" rx="2"/>
+        </svg>
+        <span>模板</span>
+      </button>
+      <button class="toolbar-btn toolbar-btn--primary" id="toolbar-pip" type="button">
+        <span class="toolbar-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5.5v13M5.5 12h13"/>
+          </svg>
+        </span>
+        <span>打卡</span>
+      </button>
+      <button class="toolbar-btn" id="toolbar-settings" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 8h16M4 16h16"/>
+          <circle cx="9" cy="8" r="2.5"/>
+          <circle cx="15" cy="16" r="2.5"/>
+        </svg>
+        <span>设置</span>
+      </button>
+    </nav>
+
   </div>
 
-  <nav class="toolbar" aria-label="主导航">
-    <button class="toolbar-btn" id="toolbar-templates" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-        <rect x="3.5" y="3.5" width="7" height="7" rx="2"/>
-        <rect x="13.5" y="3.5" width="7" height="7" rx="2"/>
-        <rect x="3.5" y="13.5" width="7" height="7" rx="2"/>
-        <rect x="13.5" y="13.5" width="7" height="7" rx="2"/>
-      </svg>
-      <span>模板</span>
-    </button>
-    <button class="toolbar-btn toolbar-btn--primary" id="toolbar-pip" type="button">
-      <span class="toolbar-pill">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
-          <path d="M12 5.5v13M5.5 12h13"/>
+  <!-- 设置页：整屏切换，左上角返回（PRD 7.6）。内容由 js/views/settings.js 填。 -->
+  <div class="view" id="view-settings" hidden>
+    <header class="settings-header">
+      <button class="icon-btn" id="settings-back" type="button" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14.5 5.5 8 12l6.5 6.5"/>
         </svg>
-      </span>
-      <span>打卡</span>
-    </button>
-    <button class="toolbar-btn" id="toolbar-settings" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
-        <path d="M4 8h16M4 16h16"/>
-        <circle cx="9" cy="8" r="2.5"/>
-        <circle cx="15" cy="16" r="2.5"/>
-      </svg>
-      <span>设置</span>
-    </button>
-  </nav>
+      </button>
+      <h1 class="settings-title">设置</h1>
+    </header>
+    <div class="settings-body" id="settings-body"></div>
+  </div>
 
 </main>
 

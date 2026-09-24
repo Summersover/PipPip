@@ -115,7 +115,11 @@
 │   ├── icon-512-maskable.png
 │   └── apple-touch-icon.png    180×180，iOS 不读 manifest 的图标
 ├── tests/
-│   └── dates.test.js           node --test，纯函数断言 ✓ 已写
+│   ├── dates.test.js           日期纯函数（含多时区）
+│   ├── model.test.js           normalize / 合并 / 导出导入
+│   ├── state.test.js           写操作与只读模式（注入假的 app 出口）
+│   ├── store.test.js           存储层失败路径
+│   └── calendar.test.js        色板一致性与点数量规则
 ├── tools/
 │   ├── check-tz.js             多时区跑测试（文件名不能叫 test-*.js，见 10.4）
 │   ├── serve.js                零依赖静态服务器（见 10.1）
@@ -160,10 +164,10 @@ export async function snapshotToBackup()              // 导入前手动兜底
 ```
 pip:v1:data     → 整个数据库 JSON
 pip:v1:backup   → 上一次成功写入前的旧值
-pip:v1:prefs    → 偏好设置（主题），与数据分开
+pip:v1:prefs    → 偏好与本地状态（主题、上次导出时间），与数据分开
 ```
 
-**为什么 prefs 要分开**：主题偏好不是用户数据，不该进导出文件；数据损坏时也不该连带丢失。
+**为什么 prefs 要分开**：主题偏好和上次导出时间都不是用户数据，不该进导出文件；数据损坏时也不该连带丢失。
 
 **为什么加 `pip:v1:` 前缀**：localStorage 在同一 origin 下所有页面共享。GitHub Pages 上同账号的第二个项目会共享配额和 key 空间，不加前缀会撞。
 

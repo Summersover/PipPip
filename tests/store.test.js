@@ -239,6 +239,19 @@ test('偏好值非法时回落到跟随系统', async () => {
   assert.deepEqual(await store.loadPrefs(), { theme: 'system' });
 });
 
+test('偏好带上上次导出时间', async () => {
+  seed({ [KEY_PREFS]: JSON.stringify({ theme: 'dark', lastExportAt: 1790000000000 }) });
+  assert.deepEqual(await store.loadPrefs(), { theme: 'dark', lastExportAt: 1790000000000 });
+});
+
+test('上次导出时间坏了就当没有，不带着 NaN 走', async () => {
+  // 带着的话设置页会显示「NaN 天前」
+  for (const bad of ['x', null, {}, NaN]) {
+    seed({ [KEY_PREFS]: JSON.stringify({ theme: 'dark', lastExportAt: bad }) });
+    assert.deepEqual(await store.loadPrefs(), { theme: 'dark' }, `${JSON.stringify(bad)} 应当被丢掉`);
+  }
+});
+
 test('偏好损坏时回落到跟随系统，不影响数据', async () => {
   seed({ [KEY_PREFS]: '{坏', [KEY_DATA]: JSON.stringify(sample()) });
   assert.deepEqual(await store.loadPrefs(), { theme: 'system' });

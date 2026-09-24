@@ -4,7 +4,7 @@
  * 这里不接触 localStorage——那是 `store.js` 的唯一职责（见 TECH 3.1）。
  */
 
-import { isDateKey } from './dates.js';
+import { isDateKey, toLocalIso } from './dates.js';
 
 /** 结构版本。改结构时递增，并在 `migrate()` 里补迁移。 */
 export const SCHEMA_VERSION = 1;
@@ -347,4 +347,109 @@ export function looksLikeData(value) {
  */
 export function migrate(data) {
   return data;
+}
+
+// ─────────────────────────────────────────────────────────
+// 导出与导入（TECH 9）
+// ─────────────────────────────────────────────────────────
+
+/** 导出文件外壳上的标记，导入时用来认「这是不是 Pip 的文件」。 */
+export const EXPORT_APP = 'pip';
+
+/** 认得的外壳版本。将来加版本时在这里追加，并在 `migrate()` 里补上迁移。 */
+export const KNOWN_VERSIONS = [SCHEMA_VERSION];
+
+/**
+ * 包一层导出外壳（TECH 9.1）。
+ *
+ * `app` / `version` 是给导入校验用的；`exportedAt` 只是给人看的时间戳，**不进
+ * `data`**——数据里不该混进「什么时候导出的」这种设备本地信息。
+ *
+ * @param {PipData} data
+ * @param {Date} [now]
+ * @returns {{ app: string, version: number, exportedAt: string, data: PipData }}
+ */
+export function buildExport(data, now = new Date()) {
+  return {
+    app: EXPORT_APP,
+    version: SCHEMA_VERSION,
+    exportedAt: toLocalIso(now),
+    data,
+  };
+}
+
+/**
+ * 解析并校验一个导入文件。
+ *
+ * **失败要说清原因**，不能静默忽略（PRD 11 / TECH 9.2）——所以返回的是原因码而不是
+ * 一个光秃秃的 false，由界面翻成人话。
+ *
+ * @param {string} text 文件原文
+ * @param {(dropped: { id: string, date: unknown }) => void} [onDrop] 交给 normalize 留痕
+ * @returns {{ ok: true, data: PipData }
+ *   | { ok: false, reason: 'parse' | 'not-pip' | 'version' | 'incomplete', detail?: string }}
+ */
+export function parseImport(text, onDrop) {
+  /** @type {unknown} */
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return { ok: false, reason: 'parse' };
+  }
+
+  const shell = asObject(payload);
+  if (shell.app !== EXPORT_APP) return { ok: false, reason: 'not-pip' };
+
+  const version = shell.version;
+  if (typeof version !== 'number' || !KNOWN_VERSIONS.includes(version)) {
+    return { ok: false, reason: 'version', detail: String(version) };
+  }
+
+  // 外壳对但 data 不像我们的结构：和 store.js 的损坏判定是同一条链，不能当成空数据
+  if (!looksLikeData(shell.data)) return { ok: false, reason: 'incomplete' };
+
+  return { ok: true, data: migrate(normalize(shell.data, onDrop)) };
+}
+
+/**
+ * 按 id 取并集，同 id 冲突取 `updated_at` 较新者（TECH 9.3）。
+ *
+ * 每条 pip 和 template 都有独立 id，所以规则是明确的——这也是每条记录都带
+ * `updated_at` 的用途。
+ *
+ * **已知语义漏洞**：并集无法传播「删除」。A 设备删掉的一条在 B 设备上仍然存在，
+ * 合并时会回来。接受它，纪律是「同一时间只在一台设备上打卡」，换设备该用「覆盖」。
+ *
+ * @template {{ id: string, updated_at?: number }} T
+ * @param {T[]} local
+ * @param {T[]} incoming
+ * @returns {T[]}
+ */
+export function mergeById(local, incoming) {
+  /** @type {Map<string, T>} */
+  const map = new Map();
+  for (const item of [...local, ...incoming]) {
+    const prev = map.get(item.id);
+    // 时间戳相同则保留本地（先写入的），避免无意义地改动本地数据
+    if (!prev || (item.updated_at ?? 0) > (prev.updated_at ?? 0)) map.set(item.id, item);
+  }
+  return [...map.values()];
+}
+
+/**
+ * 合并两整份数据。
+ *
+ * @param {PipData} local
+ * @param {PipData} incoming
+ * @returns {PipData}
+ */
+export function mergeData(local, incoming) {
+  return {
+    version: SCHEMA_VERSION,
+    templates: mergeById(local.templates, incoming.templates).sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+    pips: mergeById(local.pips, incoming.pips),
+  };
 }

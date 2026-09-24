@@ -13,6 +13,7 @@ import {
   createTemplate,
   groupPipsByDate,
   indexTemplates,
+  mergeData,
 } from './model.js';
 
 export const state = {
@@ -90,12 +91,18 @@ export function refreshToday() {
  *   `removedPipId` 表示这个点要淡出后再重画那一格。
  * @property {(name: string, params?: Record<string, unknown>) => void} intent
  *   跳转意图：开某个 sheet 页面，或退一层、关掉。
+ * @property {() => Promise<unknown>} backup
+ *   把当前数据无条件写进备份。导入前兜底用（TECH 9.2）。
+ * @property {(next: import('./store.js').Prefs) => Promise<unknown>} prefs
+ *   保存并应用偏好（主题、上次导出时间）。
  */
 
 /** @type {AppHost} */
 let app = {
   write: async () => {},
   intent: () => {},
+  backup: async () => {},
+  prefs: async () => {},
 };
 
 /**
@@ -239,6 +246,41 @@ export async function removePip(pipId) {
 
   await app.write({ dateKey: removed.date, removedPipId: removed.id });
   return removed.date;
+}
+
+/**
+ * 改偏好（主题、上次导出时间）。
+ *
+ * 偏好不落进 `data`，所以不走 `write`：那边会重绘日历，而改主题只要换一层 CSS 变量。
+ * 保存与应用由 app.js 接上。
+ *
+ * @param {Partial<import('./store.js').Prefs>} patch
+ */
+export async function updatePrefs(patch) {
+  state.prefs = { ...state.prefs, ...patch };
+  await app.prefs(state.prefs);
+}
+
+/**
+ * 用导入的数据替换或合并当前数据（TECH 9.2 / 9.3）。
+ *
+ * 导入前**必须**先留一条退路：选「覆盖」又选错文件，是唯一能一次毁掉全部数据的操作。
+ * 这里走的是 `store.snapshotToBackup()`（无条件备份），而不是 `save()` 里那次备份
+ * ——后者只在现有主值「看起来像我们的数据」时才挪，主值恰好损坏时反倒不留。
+ *
+ * @param {import('./model.js').PipData} incoming 已过 `parseImport` 的校验与归一
+ * @param {'merge' | 'replace'} mode
+ * @returns {Promise<boolean>} 只读模式下返回 false
+ */
+export async function importData(incoming, mode) {
+  if (state.readOnly) return false;
+
+  await app.backup();
+  state.data = mode === 'merge' ? mergeData(state.data, incoming) : incoming;
+  reindex();
+
+  await app.write({ calendar: true });
+  return true;
 }
 
 /**

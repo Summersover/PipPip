@@ -5,15 +5,20 @@
 import { toDateKey } from './dates.js';
 import { flushPending, goToday, index, mountHost, refreshToday, reindex, state } from './state.js';
 import * as store from './store.js';
+import { applyTheme, watchSystemTheme } from './theme.js';
 import { clearBanner, mountBanner, showBanner } from './views/banner.js';
 import { renderCalendar, renderCell, renderTitle } from './views/calendar.js';
 import { renderDayList, renderPipDetail } from './views/day.js';
 import { renderPipCreate } from './views/pip-form.js';
+import { renderSettings } from './views/settings.js';
 import { closeAll, mountSheet, push, registerPage } from './views/sheet.js';
 import { renderTemplateEdit, renderTemplateList } from './views/templates.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
+const calendarView = document.getElementById('view-calendar');
+const settingsView = document.getElementById('view-settings');
+const settingsBody = document.getElementById('settings-body');
 
 // ─────────────────────────────────────────────────────────
 // 渲染
@@ -126,6 +131,24 @@ function mountAppHost() {
       else renderCellAt(dateKey, pipId);
     },
 
+    /**
+     * 导入前把当前数据**无条件**写进备份（TECH 9.2）。
+     *
+     * 用的是 `snapshotToBackup()` 而不是 `save()` 里那次备份：后者只在现有主值「看起
+     * 像我们的数据」时才挪，主值恰好损坏时反倒不会留。
+     */
+    async backup() {
+      await store.snapshotToBackup();
+    },
+
+    /**
+     * 偏好变了：落盘 + 应用主题。偏好不在 `data` 里，所以不走 `write`。
+     */
+    async prefs(next) {
+      await store.savePrefs(next);
+      applyTheme(next.theme);
+    },
+
     intent(name, params = {}) {
       switch (name) {
         case 'new-template':
@@ -154,6 +177,31 @@ function mountAppHost() {
       }
     },
   });
+}
+
+// ─────────────────────────────────────────────────────────
+// 设置页：整屏切换
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 切到设置页。整屏替换日历，不是弹窗（PRD 6 / 7.6）。
+ *
+ * 顺带压一条 history 记录：不然 Android 返回键会直接退出应用，用户想回日历却退出了
+ * ——和 sheet 是同一个问题、同一套解法（TECH 7.2）。
+ */
+function openSettings() {
+  if (!calendarView || !settingsView || !settingsBody) return;
+  renderSettings(settingsBody);
+  calendarView.hidden = true;
+  settingsView.hidden = false;
+  settingsBody.scrollTop = 0;
+  history.pushState({ pipSettings: true }, '');
+}
+
+function closeSettings() {
+  if (!settingsView || settingsView.hidden) return;
+  settingsView.hidden = true;
+  if (calendarView) calendarView.hidden = false;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -209,7 +257,16 @@ async function boot() {
   registerPage('template-list', renderTemplateList);
   registerPage('template-edit', renderTemplateEdit);
 
+  // reload 会把历史记录的 state 一起留下，而应用是从「日历 + 空弹窗栈」起来的，所以
+  // 任何残留标记按定义都过期了。不清的话栈深和 history 对不上，用户要多按一次返回键。
+  if (history.state) history.replaceState(null, '');
+
   state.prefs = await store.loadPrefs();
+  // theme-boot.js 已经在首屏之前把 data-theme 定好了（那是为了不闪白）。这里是把
+  // 「跟随系统」的监听接上，并保证 JS 侧的解析规则和它一致（TECH 8.2）。
+  applyTheme(state.prefs.theme);
+  watchSystemTheme(() => state.prefs.theme);
+
   const availability = await store.probe();
 
   const result = await store.load({
@@ -293,6 +350,21 @@ document.getElementById('toolbar-pip')?.addEventListener('click', () => {
 
 document.getElementById('toolbar-templates')?.addEventListener('click', () => {
   push('template-list', {});
+});
+
+document.getElementById('toolbar-settings')?.addEventListener('click', () => {
+  openSettings();
+});
+
+// 返回箭头走 history.back()，这样和 Android 返回键是同一条路（和 sheet 的 ‹ 一致）
+document.getElementById('settings-back')?.addEventListener('click', () => {
+  history.back();
+});
+
+window.addEventListener('popstate', () => {
+  // 设置页是压一条 history 打开的，落回没有那个标记的记录就把它收掉。
+  // 设置页没开着时这是空操作，所以不影响 sheet 的返回键处理。
+  if (!history.state?.pipSettings) closeSettings();
 });
 
 // 页面重新可见时，如果已经跨过午夜就重绘

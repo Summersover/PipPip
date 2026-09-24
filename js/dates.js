@@ -241,3 +241,28 @@ export function formatRelativeDays(ts, todayKey = toDateKey()) {
   if (n === 1) return '昨天';
   return `${n} 天前`;
 }
+
+/**
+ * 带本地时区偏移的 ISO 8601，形如 `"2026-09-22T14:30:00+08:00"`。
+ *
+ * 导出文件的时间戳用它（TECH 9.1）。它**不是** `DateKey`，不需要和日历对齐，所以
+ * 带上偏移是对的——换台设备打开文件也知道那是本地的几点。
+ *
+ * 仍然不用 `toISOString()`：那个按 UTC 输出，还得再把偏移算回去拼一遍（TECH 15
+ * 禁止在 `dates.js` 之外直接出现它）。
+ *
+ * @param {Date} [d]
+ * @returns {string}
+ */
+export function toLocalIso(d = new Date()) {
+  /** @param {number} n */
+  const pad = (n) => String(n).padStart(2, '0');
+  // getTimezoneOffset() 返回「UTC - 本地」的分钟数，取负号得到常见写法的偏移
+  const offset = -d.getTimezoneOffset();
+  const abs = Math.abs(offset);
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${offset < 0 ? '-' : '+'}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+  );
+}

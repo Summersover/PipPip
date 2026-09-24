@@ -149,15 +149,15 @@ function buildSwatches(initial, onPick) {
 function buildAction(label, hint, danger, onClick) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = danger ? 'tpl-action is-danger' : 'tpl-action';
+  btn.className = danger ? 'action is-danger' : 'action';
   btn.addEventListener('click', onClick);
 
   const name = document.createElement('span');
-  name.className = 'tpl-action-label';
+  name.className = 'action-label';
   name.textContent = label;
 
   const note = document.createElement('span');
-  note.className = 'tpl-action-hint';
+  note.className = 'action-hint';
   note.textContent = hint;
 
   btn.append(name, note);

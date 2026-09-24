@@ -32,6 +32,7 @@ import {
   formatDayLabel,
   formatTime,
   formatRelativeDays,
+  toLocalIso,
 } from '../js/dates.js';
 
 // ─────────────────────────────────────────────────────────
@@ -338,4 +339,40 @@ test('parseDateKey 给出本地午夜', () => {
   assert.equal(d.getHours(), 0);
   assert.equal(d.getMinutes(), 0);
   assert.equal(toDateKey(d), '2026-09-22', '往返一致');
+});
+
+// ─────────────────────────────────────────────────────────
+// 带本地偏移的 ISO（导出文件的时间戳）
+// ─────────────────────────────────────────────────────────
+
+test('toLocalIso 的格式是带偏移的 ISO 8601', () => {
+  assert.match(
+    toLocalIso(new Date(2026, 8, 22, 14, 30, 0)),
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/,
+  );
+});
+
+test('toLocalIso 写的是本地分量，不是 UTC 分量', () => {
+  // 和 toDateKey 同一个道理：本地 00:30 的日期部分必须是本地的今天。
+  // 任何时区下都成立，所以不硬编码时区。
+  assert.ok(
+    toLocalIso(new Date(2026, 8, 22, 0, 30, 0)).startsWith('2026-09-22T00:30:00'),
+    toLocalIso(new Date(2026, 8, 22, 0, 30, 0)),
+  );
+});
+
+test('toLocalIso 的偏移和运行环境的实际偏移一致', () => {
+  // 从 Date 自己算出偏移再比，不在测试里写死时区
+  const d = new Date(2026, 8, 22, 14, 30, 0);
+  const offsetMin = -d.getTimezoneOffset();
+  const abs = Math.abs(offsetMin);
+  const pad = (n) => String(n).padStart(2, '0');
+  const expected = `${offsetMin < 0 ? '-' : '+'}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+  assert.ok(toLocalIso(d).endsWith(expected), `应当以 ${expected} 结尾`);
+});
+
+test('toLocalIso 能被 Date 解析回同一时刻', () => {
+  // 这是它存在的意义：换台设备打开导出文件，也知道那是本地的几点
+  const d = new Date(2026, 8, 22, 14, 30, 0);
+  assert.equal(new Date(toLocalIso(d)).getTime(), d.getTime());
 });

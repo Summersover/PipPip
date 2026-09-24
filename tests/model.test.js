@@ -14,12 +14,16 @@ import {
   SCHEMA_VERSION,
   TITLE_MAX,
   activeTemplates,
+  buildExport,
   createPip,
   createTemplate,
   looksLikeData,
+  mergeById,
+  mergeData,
   nextSortOrder,
   normalize,
   orderedTemplates,
+  parseImport,
   pickColor,
 } from '../js/model.js';
 
@@ -242,4 +246,112 @@ test('createTemplate 认传入的颜色，不在色板里则回落到自动分�
 
 test('createTemplate 截断超长标题', () => {
   assert.equal(createTemplate([], { title: 'x'.repeat(50) }).title.length, TITLE_MAX);
+});
+
+// ─────────────────────────────────────────────────────────
+// 导出与导入
+// ─────────────────────────────────────────────────────────
+
+test('buildExport 包一层外壳，exportedAt 不进 data', () => {
+  const data = { version: SCHEMA_VERSION, templates: [], pips: [] };
+  const payload = buildExport(data, new Date(2026, 8, 22, 14, 30, 0));
+
+  assert.equal(payload.app, 'pip');
+  assert.equal(payload.version, SCHEMA_VERSION);
+  assert.equal(payload.data, data, 'data 原样带出，不掺别的东西');
+  assert.ok(payload.exportedAt.startsWith('2026-09-22T14:30:00'), payload.exportedAt);
+});
+
+test('parseImport 认得自己导出的文件', () => {
+  const payload = buildExport({ version: SCHEMA_VERSION, templates: [template()], pips: [pip()] });
+  const result = parseImport(JSON.stringify(payload));
+
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.data.pips.length, 1);
+});
+
+test('parseImport 对每种坏文件都给出对应的原因码', () => {
+  // PRD 11 / TECH 9.2：失败要明确说明原因，不能静默忽略
+  const cases = [
+    ['{不是 JSON', 'parse'],
+    [JSON.stringify({ app: '别的', version: 1, data: { templates: [], pips: [] } }), 'not-pip'],
+    [JSON.stringify({ app: 'pip', version: 99, data: { templates: [], pips: [] } }), 'version'],
+    [JSON.stringify({ app: 'pip', version: 1 }), 'incomplete'],
+    [JSON.stringify({ app: 'pip', version: 1, data: { hello: 'world' } }), 'incomplete'],
+    [JSON.stringify([1, 2, 3]), 'not-pip'],
+  ];
+
+  for (const [text, reason] of cases) {
+    const result = parseImport(text);
+    assert.equal(result.ok, false, `${reason} 应当失败`);
+    if (!result.ok) assert.equal(result.reason, reason, `实际 ${result.reason}`);
+  }
+});
+
+test('parseImport 把文件里的版本号带出来，供提示用', () => {
+  const result = parseImport(
+    JSON.stringify({ app: 'pip', version: 99, data: { templates: [], pips: [] } }),
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.detail, '99');
+});
+
+test('parseImport 过一遍 normalize，缺字段被补全而不是报错', () => {
+  const result = parseImport(
+    JSON.stringify({ app: 'pip', version: 1, data: { templates: [{ title: '只有标题' }], pips: [] } }),
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) assert.ok(result.data.templates[0].id, '缺 id 要补一个');
+});
+
+test('parseImport 丢弃非法日期时回调留痕', () => {
+  // normalize 唯一的破坏性操作，不能静默（TECH 11.4）
+  const dropped = [];
+  parseImport(
+    JSON.stringify({ app: 'pip', version: 1, data: { templates: [], pips: [pip({ date: '2026-9-22' })] } }),
+    (d) => dropped.push(d),
+  );
+  assert.equal(dropped.length, 1);
+});
+
+test('mergeById 按 id 取并集，同 id 取 updated_at 较新者', () => {
+  const local = [pip({ id: 'p_1', note: '本地', updated_at: 100 })];
+  const incoming = [
+    pip({ id: 'p_1', note: '导入', updated_at: 200 }),
+    pip({ id: 'p_2', updated_at: 1 }),
+  ];
+
+  const merged = mergeById(local, incoming);
+  assert.equal(merged.length, 2);
+  assert.equal(merged.find((p) => p.id === 'p_1')?.note, '导入');
+});
+
+test('mergeById 时间戳相同时保留本地', () => {
+  // 否则一次合并会把本地数据无意义地改一遍
+  const local = [pip({ id: 'p_1', note: '本地', updated_at: 100 })];
+  const incoming = [pip({ id: 'p_1', note: '导入', updated_at: 100 })];
+  assert.equal(mergeById(local, incoming)[0].note, '本地');
+});
+
+test('mergeById 缺 updated_at 时按 0 算，本地优先', () => {
+  const local = [pip({ id: 'p_1', note: '本地', updated_at: undefined })];
+  const incoming = [pip({ id: 'p_1', note: '导入', updated_at: undefined })];
+  assert.equal(mergeById(local, incoming)[0].note, '本地');
+});
+
+test('mergeData 合并两份数据，模板按 sort_order 排', () => {
+  const local = {
+    version: SCHEMA_VERSION,
+    templates: [template({ id: 't_b', sort_order: 1 })],
+    pips: [pip({ id: 'p_1' })],
+  };
+  const incoming = {
+    version: SCHEMA_VERSION,
+    templates: [template({ id: 't_a', sort_order: 0 })],
+    pips: [pip({ id: 'p_2' })],
+  };
+
+  const merged = mergeData(local, incoming);
+  assert.deepEqual(merged.templates.map((t) => t.id), ['t_a', 't_b']);
+  assert.deepEqual(merged.pips.map((p) => p.id).sort(), ['p_1', 'p_2']);
 });

@@ -35,8 +35,18 @@ const KEY_PROBE = 'pip:v1:__probe';
  */
 
 /**
+ * 主题偏好。三档，默认跟随系统（PRD 9.7）。
+ * @typedef {'system' | 'light' | 'dark'} ThemePref
+ */
+
+/**
+ * 偏好与本地状态。
+ *
+ * 两样都不进导出文件：偏好不是用户数据，`lastExportAt` 是设备本地的（TECH 3.2）。
+ *
  * @typedef {object} Prefs
- * @property {'system' | 'light' | 'dark'} theme
+ * @property {ThemePref} theme
+ * @property {number} [lastExportAt] 上次导出数据的时刻，用于设置页的导出提醒（PRD 7.6）
  */
 
 /**
@@ -175,18 +185,27 @@ export async function save(data) {
 }
 
 /**
- * 读偏好设置。与数据分开存：偏好不是用户数据，不该进导出文件，数据损坏时也
- * 不该连带丢失（TECH 3.2）。
+ * 读偏好与本地状态。与数据分开存：它们不是用户数据，不该进导出文件，数据损坏时
+ * 也不该连带丢失（TECH 3.2）。
  *
  * @returns {Promise<Prefs>}
  */
 export async function loadPrefs() {
   const raw = read(KEY_PREFS);
   const parsed = raw === null ? undefined : tryParse(raw);
-  const theme = parsed && typeof parsed === 'object'
-    ? /** @type {Record<string, unknown>} */ (parsed).theme
-    : undefined;
-  return { theme: theme === 'light' || theme === 'dark' ? theme : 'system' };
+  const source =
+    parsed && typeof parsed === 'object' ? /** @type {Record<string, unknown>} */ (parsed) : {};
+
+  /** @type {Prefs} */
+  const prefs = { theme: source.theme === 'light' || source.theme === 'dark' ? source.theme : 'system' };
+
+  // 值坏了就当没有：导出提醒回到「还没导出过」，比显示一个 NaN 天前好
+  const exportedAt = source.lastExportAt;
+  if (typeof exportedAt === 'number' && Number.isFinite(exportedAt)) {
+    prefs.lastExportAt = exportedAt;
+  }
+
+  return prefs;
 }
 
 /**

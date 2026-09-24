@@ -102,11 +102,6 @@ export function mountSheet() {
   attachDrag();
 
   window.addEventListener('popstate', onPopstate);
-
-  // 清掉可能残留的弹窗深度标记。reload 时历史记录的 state 会保留下来，而应用是
-  // 从空栈起来的，那个标记按定义已经过期——不清的话栈深和 history 对不上，用户
-  // 要多按一次返回键才关得掉弹窗。
-  if (historyDepth() !== 0) history.replaceState(null, '');
 }
 
 /** 栈深。 */
