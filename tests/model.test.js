@@ -8,7 +8,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { NOTE_MAX, PRESET_COLORS, SCHEMA_VERSION, TITLE_MAX, looksLikeData, normalize } from '../js/model.js';
+import {
+  NOTE_MAX,
+  PRESET_COLORS,
+  SCHEMA_VERSION,
+  TITLE_MAX,
+  activeTemplates,
+  createPip,
+  looksLikeData,
+  normalize,
+} from '../js/model.js';
 
 const pip = (over = {}) => ({
   id: 'p_1',
@@ -123,4 +132,52 @@ test('looksLikeData 只认有模板或记录数组的对象', () => {
   assert.equal(looksLikeData('x'), false);
   assert.equal(looksLikeData(null), false);
   assert.equal(looksLikeData(undefined), false);
+});
+
+// ─────────────────────────────────────────────────────────
+// 造记录与取启用中的模板（打卡流程用的两个纯函数）
+// ─────────────────────────────────────────────────────────
+
+test('createPip 同时存本地日期和时刻', () => {
+  // 两个都要存：date 用来按天分组且不随时区漂移，at 用来在当天内排序（TECH 4.2）
+  const before = Date.now();
+  const p = createPip('t_a', '2026-09-22', '开会前灌了一杯');
+  assert.equal(p.template_id, 't_a');
+  assert.equal(p.date, '2026-09-22');
+  assert.ok(p.at >= before, 'at 取此刻');
+  assert.equal(p.note, '开会前灌了一杯');
+  assert.equal(p.updated_at, p.at, '新记录的 updated_at 就是它的时刻');
+  assert.ok(p.id.startsWith('p_'));
+});
+
+test('createPip 不填备注也能记', () => {
+  // PRD 7.2：备注可选，不填也能确定
+  assert.equal(createPip('t_a', '2026-09-22').note, '');
+});
+
+test('createPip 截断超长备注', () => {
+  assert.equal(createPip('t_a', '2026-09-22', 'y'.repeat(500)).note.length, NOTE_MAX);
+});
+
+test('同一个模板同一天可以记多条，各有各的 id', () => {
+  // PRD 验收第 4 条：一个模板一天能打多次，日历上显示多个点
+  const a = createPip('t_a', '2026-09-22');
+  const b = createPip('t_a', '2026-09-22');
+  assert.notEqual(a.id, b.id);
+});
+
+test('activeTemplates 只留启用中的，并按 sort_order 排', () => {
+  const list = activeTemplates([
+    template({ id: 't_c', sort_order: 2 }),
+    template({ id: 't_a', sort_order: 0 }),
+    template({ id: 't_arch', sort_order: 1, archived: true }),
+  ]);
+  assert.deepEqual(list.map((t) => t.id), ['t_a', 't_c'], '停用的不出现，顺序按 sort_order');
+});
+
+test('activeTemplates 不改动传进来的数组', () => {
+  // 先 filter 出新数组再 sort：就地排会改到 state.data.templates 的顺序
+  const source = [template({ id: 't_b', sort_order: 1 }), template({ id: 't_a', sort_order: 0 })];
+  activeTemplates(source);
+  assert.deepEqual(source.map((t) => t.id), ['t_b', 't_a']);
 });

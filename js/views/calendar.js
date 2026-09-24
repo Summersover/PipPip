@@ -131,6 +131,9 @@ function buildDots(pips, templateById) {
       const dot = document.createElement('span');
       const color = templateById.get(pip.template_id)?.color ?? '';
       dot.className = `pip ${COLOR_CLASS[color] ?? 'pip-unknown'}`;
+      // 带上 id，打卡后只给新出现的那个点加入场动画——整格的点一起弹会像是出了错
+      // （见 TECH 6.2）
+      dot.dataset.pip = pip.id;
       row.append(dot);
     }
 

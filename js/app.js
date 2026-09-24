@@ -3,12 +3,13 @@
  */
 
 import { toDateKey } from './dates.js';
-import { goToday, index, refreshToday, reindex, state } from './state.js';
+import { goToday, index, mountHost, refreshToday, reindex, state } from './state.js';
 import * as store from './store.js';
 import { clearBanner, mountBanner, showBanner } from './views/banner.js';
-import { renderCalendar, renderTitle } from './views/calendar.js';
+import { renderCalendar, renderCell, renderTitle } from './views/calendar.js';
 import { renderDayList } from './views/day.js';
-import { mountSheet, push, registerPage } from './views/sheet.js';
+import { renderPipCreate } from './views/pip-form.js';
+import { closeAll, hasPage, mountSheet, push, registerPage } from './views/sheet.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
@@ -53,6 +54,56 @@ async function persist() {
     kind: result.reason === 'quota' ? 'quota' : 'unavailable',
     message:
       result.reason === 'quota' ? '存储写入失败，请立即导出备份' : '存储不可用，数据不会被保存',
+  });
+}
+
+/**
+ * 只重绘某一天的格子。
+ *
+ * 打卡之后用，让 pip 的出现动画落在正确的元素上，而不是整片重绘（TECH 6.2）。
+ *
+ * @param {import('./dates.js').DateKey} dateKey
+ * @param {string} [pipId] 新记下的那一条，只给它加入场动画
+ */
+function renderCellAt(dateKey, pipId) {
+  if (!gridEl) return;
+  refreshToday();
+  renderCell(gridEl, dateKey, index.byDate, index.byTemplate, state.todayKey);
+  // 整格的点一起弹会像是出了错，所以只标记新出现的那个
+  if (pipId) gridEl.querySelector(`.pip[data-pip="${pipId}"]`)?.classList.add('is-new');
+}
+
+// ─────────────────────────────────────────────────────────
+// 装配：视图做不了的那两件事
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 把「落盘 + 重绘」和「跳转」接给 state，视图通过它调（TECH 2 的依赖方向：
+ * `views → state → model → store`，`views/*` 之间也不互相 import）。
+ */
+function mountAppHost() {
+  mountHost({
+    /**
+     * 记录一笔是一个整体流程（PRD 7.2）：落盘 → 日历上多一个点 → 关掉弹窗。
+     * 分开写容易漏掉某一步，所以由这里一次做完。
+     */
+    async write({ dateKey, pipId } = {}) {
+      await persist();
+      if (dateKey) renderCellAt(dateKey, pipId);
+      closeAll();
+    },
+
+    intent(name) {
+      if (name !== 'new-template') return;
+
+      // 模板弹窗是第 6 步。它还没注册时先挡在 push 之前——push 会抛，而抛在
+      // 按钮的点击里不好看；但也不能静默什么都不做（TECH 11.3）。
+      if (!hasPage('template-edit')) {
+        console.warn('[pip] 模板弹窗还没做（第 6 步），暂时打不开新建模板');
+        return;
+      }
+      push('template-edit', {});
+    },
   });
 }
 
@@ -102,7 +153,9 @@ function exportRaw(raw) {
 async function boot() {
   mountBanner(document.getElementById('banner'));
   mountSheet();
+  mountAppHost();
   registerPage('day-list', renderDayList);
+  registerPage('pip-create', renderPipCreate);
 
   state.prefs = await store.loadPrefs();
   const availability = await store.probe();
@@ -178,6 +231,12 @@ gridEl?.addEventListener('click', (event) => {
   if (!(cell instanceof HTMLButtonElement) || cell.disabled) return;
   const dateKey = cell.dataset.date;
   if (dateKey) push('day-list', { dateKey });
+});
+
+// 「打卡」是主动作，目标日期是今天。刻意取此刻而不是 state.todayKey：应用可能开着
+// 过了午夜，而 todayKey 只在渲染时刷新（TECH 5.4）。
+document.getElementById('toolbar-pip')?.addEventListener('click', () => {
+  push('pip-create', { dateKey: toDateKey() });
 });
 
 // 页面重新可见时，如果已经跨过午夜就重绘

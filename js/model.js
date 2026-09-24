@@ -104,6 +104,45 @@ export function newId(prefix) {
 }
 
 /**
+ * 造一条 pip。
+ *
+ * `date` 由调用方给（打卡那一刻用本地时区算好的字符串，之后永远不变），`at` 取
+ * 此刻。**两个都要存**：`date` 用来按天分组且不随时区漂移，`at` 用来在当天内排序
+ * 和显示「14:30」（见 TECH 4.2）。只用 `at` 反推日期就会掉进时区陷阱。
+ *
+ * 同一个模板同一天可以产生多条，每次都是独立的记录，各有各的 id（PRD 第 8 节）。
+ *
+ * @param {string} templateId
+ * @param {import('./dates.js').DateKey} dateKey
+ * @param {string} [note] 可为空，超长截断
+ * @returns {Pip}
+ */
+export function createPip(templateId, dateKey, note = '') {
+  const now = Date.now();
+  return {
+    id: newId('p'),
+    template_id: templateId,
+    date: dateKey,
+    at: now,
+    note: String(note).slice(0, NOTE_MAX),
+    updated_at: now,
+  };
+}
+
+/**
+ * 启用中的模板，按 `sort_order` 排。
+ *
+ * 打卡弹窗只列这些，已停用的不出现（PRD 7.2）——但停用只是不再可选，历史记录和
+ * 日历上的点全部保留（PRD 7.5）。
+ *
+ * @param {Template[]} templates
+ * @returns {Template[]} 新数组，不改动传入的那个
+ */
+export function activeTemplates(templates) {
+  return templates.filter((t) => !t.archived).sort((a, b) => a.sort_order - b.sort_order);
+}
+
+/**
  * 按日期分组，组内按打卡时刻**正序**（早 → 晚，像日记）。
  *
  * 渲染当月是 42 次 Map 查表，不是 42 次数组遍历（见 TECH 6.1）。
