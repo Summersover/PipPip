@@ -21,7 +21,7 @@ export const NOTE_MAX = 200;
  * @property {string} id
  * @property {string} title 必填，≤ 20 字
  * @property {string} icon emoji，可为空
- * @property {string} color 8 色预设之一
+ * @property {string} color 10 色预设之一
  * @property {boolean} archived 停用标记；停用不删记录
  * @property {number} sort_order 越小越靠前
  * @property {number} created_at
@@ -47,22 +47,29 @@ export const NOTE_MAX = 200;
  */
 
 /**
- * 模板色板：8 个中明度色，浅底和深底上都能辨识。
+ * 模板色板：10 个中明度色，浅底和深底上都能辨识。
  *
- * 顺序也是新建模板时自动分配颜色的顺序。数组元素就是存进 `Template.color`
- * 的值，`normalize()` 会拒绝不在这个列表里的颜色（见 TECH 4.4）。
+ * **按色相排序**，所以色板在界面上是「暖 → 绿 → 蓝 → 品红 → 中性」一条顺下来的，
+ * 排成两行各 5 个时两行各自也是一段连续的过渡。顺序**同时是新建模板时自动分配颜色
+ * 的顺序**。数组元素就是存进 `Template.color` 的值，`normalize()` 会拒绝不在这个
+ * 列表里的颜色（见 TECH 4.4）。
+ *
+ * `#45AD51`（青柠）和 `#B955BD`（品红）是补色相环上两个最大空档加的：原有 8 色在
+ * 「苔绿 86° → 松绿 168°」和「靛紫 253° → 玫红 344°」之间各空了 80° 以上。
  *
  * @type {readonly string[]}
  */
 export const PRESET_COLORS = [
-  '#E8734A', // 珊瑚
-  '#DFA32B', // 琥珀
-  '#7A9E4A', // 苔绿
-  '#3E8E7E', // 松绿
-  '#4A8FBF', // 湖蓝
-  '#7C6BB8', // 靛紫
-  '#D2607F', // 玫红
-  '#7A7671', // 石墨
+  '#E8734A', // 珊瑚  16°
+  '#DFA32B', // 琥珀  40°
+  '#7A9E4A', // 苔绿  86°
+  '#45AD51', // 青柠 127°
+  '#3E8E7E', // 松绿 168°
+  '#4A8FBF', // 湖蓝 205°
+  '#7C6BB8', // 靛紫 253°
+  '#B955BD', // 品红 298°
+  '#D2607F', // 玫红 344°
+  '#7A7671', // 石墨  中性
 ];
 
 /**
@@ -83,9 +90,11 @@ export const COLOR_CLASS = {
   '#E8734A': 'pip-coral',
   '#DFA32B': 'pip-amber',
   '#7A9E4A': 'pip-moss',
+  '#45AD51': 'pip-lime',
   '#3E8E7E': 'pip-pine',
   '#4A8FBF': 'pip-lake',
   '#7C6BB8': 'pip-iris',
+  '#B955BD': 'pip-orchid',
   '#D2607F': 'pip-rose',
   '#7A7671': 'pip-slate',
 };
@@ -104,9 +113,11 @@ export const COLOR_NAME = {
   '#E8734A': '珊瑚',
   '#DFA32B': '琥珀',
   '#7A9E4A': '苔绿',
+  '#45AD51': '青柠',
   '#3E8E7E': '松绿',
   '#4A8FBF': '湖蓝',
   '#7C6BB8': '靛紫',
+  '#B955BD': '品红',
   '#D2607F': '玫红',
   '#7A7671': '石墨',
 };

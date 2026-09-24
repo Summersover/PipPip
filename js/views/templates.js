@@ -272,18 +272,18 @@ export function renderTemplateList() {
     list.append(buildRow(template));
   }
 
-  // 新建是低频动作，做成列表末尾的一行，不用悬浮按钮（PRD 7.5）
-  const item = document.createElement('li');
+  wrap.append(list);
+
+  // 新建固定在卡片底边，不跟着列表滚走——模板一多，原来那个「列表末尾一行」就要滑到
+  // 底才够得着（PRD 9.5）。仍然做成一行而不是悬浮按钮：新建是低频动作，不该在界面上
+  // 制造视觉噪音（PRD 7.5）。
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'tpl-row tpl-row--new';
   add.textContent = '＋ 新建模板';
   add.addEventListener('click', () => intent('new-template'));
-  item.append(add);
-  list.append(item);
 
-  wrap.append(list);
-  return { title: '模板', body: wrap };
+  return { title: '模板', body: wrap, footer: add };
 }
 
 /**

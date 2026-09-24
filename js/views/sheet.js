@@ -4,11 +4,13 @@
  * **只有一个 sheet 元素**，内部是一个页面栈。不用多个堆叠的 sheet：那样要处理
  * z-index、遮罩层数、滚动穿透，视觉上还会层层叠高（TECH 7.1）。
  *
- * 三件事在这里落地，都属于「不做就会出问题」的那类：
+ * 容器是**居中的悬浮卡片**（PRD 6 / 9.5），宽高都写死在 CSS 里，内容更高的页面在卡片
+ * 内部滚。所以这里没有任何手势——关掉只有三条路：`✕`、点遮罩、Escape／Android 返回键。
+ *
+ * 两件事在这里落地，都属于「不做就会出问题」的那类：
  * - **Android 返回键**：PWA 里没有路由，返回键默认直接退出应用，用户想关弹窗却
  *   退出了。每次 push 一层就压一条 history 记录，让返回键先关弹窗。
  * - **焦点管理**：弹窗打开时焦点要进去、Tab 不能跑出去、关闭时回到触发它的元素。
- * - **下滑关闭**：从顶部拖拽区往下拖，超过阈值或甩得够快就关。
  */
 
 import { flushPending } from '../state.js';
@@ -16,7 +18,9 @@ import { flushPending } from '../state.js';
 /**
  * @typedef {object} SheetPage
  * @property {string} title 显示在 header 中间
- * @property {HTMLElement} body 页面内容
+ * @property {HTMLElement} body 页面内容，放不下就在卡片内部滚
+ * @property {HTMLElement} [footer] 固定在卡片底边的动作条。内容会长到需要滚的页面
+ *   （某日列表、模板列表）把主操作放这儿，免得要滑到底才够得着（PRD 9.5）
  */
 
 /**
@@ -34,19 +38,13 @@ import { flushPending } from '../state.js';
 /** 关闭动画时长，必须和 app.css 里 .sheet 的 transition 一致。 */
 const CLOSE_MS = 240;
 
-/** 拖拽超过这个距离就关闭。 */
-const DRAG_CLOSE_PX = 96;
-
-/** 甩动速度超过这个值（px/ms）也关闭，哪怕距离不够。 */
-const DRAG_CLOSE_VELOCITY = 0.5;
-
 /** @type {Map<string, PageRenderer>} */
 const pages = new Map();
 
 /** @type {SheetEntry[]} */
 const stack = [];
 
-/** @type {{ scrim: HTMLElement, sheet: HTMLElement, dragArea: HTMLElement, back: HTMLButtonElement, title: HTMLElement, body: HTMLElement, close: HTMLButtonElement } | null} */
+/** @type {{ scrim: HTMLElement, sheet: HTMLElement, back: HTMLButtonElement, title: HTMLElement, body: HTMLElement, footer: HTMLElement, close: HTMLButtonElement } | null} */
 let els = null;
 
 /** 打开前的焦点元素，关闭时还给它。 */
@@ -54,6 +52,15 @@ let restoreFocusTo = /** @type {HTMLElement | null} */ (null);
 
 /** 关闭动画进行中，避免重复触发。 */
 let closing = false;
+
+/**
+ * 面板正在打开：这一次页面渲染不播横向入场动画。
+ *
+ * 卡片自己已经有出现动画（缩放 + 淡入），内容再横向滑一次就成了两个动画叠在一起，
+ * 看着像内容在自己往左挪。PRD 9.6 把这两件事分成两行——「卡片出现 / 收起」和
+ * 「两步之间切换」——横向位移只属于后者。
+ */
+let openingPanel = false;
 
 /**
  * 关闭动画的定时器 id。
@@ -77,20 +84,20 @@ export function registerPage(name, renderer) {
 export function mountSheet() {
   const scrim = document.getElementById('scrim');
   const sheet = document.getElementById('sheet');
-  const dragArea = document.getElementById('sheet-drag');
   const back = document.getElementById('sheet-back');
   const title = document.getElementById('sheet-title');
   const body = document.getElementById('sheet-body');
+  const footer = document.getElementById('sheet-footer');
   const close = document.getElementById('sheet-close');
-  if (!scrim || !sheet || !dragArea || !back || !title || !body || !close) return;
+  if (!scrim || !sheet || !back || !title || !body || !footer || !close) return;
 
   els = {
     scrim,
     sheet,
-    dragArea,
     back: /** @type {HTMLButtonElement} */ (back),
     title,
     body,
+    footer,
     close: /** @type {HTMLButtonElement} */ (close),
   };
 
@@ -99,7 +106,6 @@ export function mountSheet() {
   els.back.addEventListener('click', () => history.back());
   document.addEventListener('keydown', onKeydown);
   els.sheet.addEventListener('keydown', onTabTrap);
-  attachDrag();
 
   window.addEventListener('popstate', onPopstate);
 }
@@ -121,6 +127,7 @@ export function push(name, params = {}) {
 
   const wasEmpty = stack.length === 0;
   if (wasEmpty) {
+    openingPanel = true;
     restoreFocusTo = /** @type {HTMLElement | null} */ (document.activeElement);
     closing = false;
     showPanel();
@@ -183,6 +190,15 @@ function flushLeavingPage() {
  * @param {'forward' | 'back'} direction
  */
 function renderStack(direction) {
+  // 打开后的第一次渲染不播横向入场：卡片正在做自己的出现动画（缩放 + 淡入），内容跟着
+  // 横滑会变成两个动画叠着，看着像内容在自己往左挪。横向位移留给面板里的页面切换
+  // （列表 → 详情、两步之间）。
+  //
+  // 标记在这里就消费掉，不放在函数末尾——中途 return 的话它留着，会把后面那一次的
+  // 动画也一起吃掉。
+  const skipAnimation = openingPanel;
+  openingPanel = false;
+
   if (!els) return;
   const top = stack[stack.length - 1];
   if (!top) return;
@@ -193,10 +209,13 @@ function renderStack(direction) {
 
   els.title.textContent = page.title;
   els.body.replaceChildren(page.body);
+  if (page.footer) els.footer.replaceChildren(page.footer);
+  else els.footer.replaceChildren();
+  els.footer.hidden = !page.footer;
   // 栈深大于 1 才有「返回」，栈底那一层是「关闭」
   els.back.hidden = stack.length <= 1;
 
-  animatePage(direction);
+  if (!skipAnimation) animatePage(direction);
 }
 
 /**
@@ -207,9 +226,13 @@ function renderStack(direction) {
 function animatePage(direction) {
   if (!els) return;
   const cls = direction === 'back' ? 'page-in-back' : 'page-in';
-  els.body.classList.remove('page-in', 'page-in-back');
-  void els.body.offsetWidth;
-  els.body.classList.add(cls);
+  // 底栏跟着一起动：有底栏的页面（某日列表、模板列表）切到没有底栏的页面时，底栏会整块
+  // 消失，不跟着动一下会显得是两件不相干的事
+  for (const el of [els.body, els.footer]) {
+    el.classList.remove('page-in', 'page-in-back');
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
 }
 
 function showPanel() {
@@ -217,16 +240,18 @@ function showPanel() {
   clearTimeout(hideTimer);
   els.scrim.hidden = false;
   els.sheet.hidden = false;
-  els.sheet.style.transform = '';
-  // 下一帧再加 is-open：从 display:none 直接加 class 不会触发过渡
-  requestAnimationFrame(() => {
-    els?.scrim.classList.add('is-open');
-    els?.sheet.classList.add('is-open');
-    // 焦点移到面板容器本身，而不是第一个按钮。容器带 aria-labelledby，
-    // 读屏会先念出「对话框 + 标题」；直接聚焦 ✕ 的话用户只听到「关闭按钮」，
-    // 不知道打开的是什么（TECH 7.3）。
-    els?.sheet.focus();
-  });
+  // 从 display:none 直接加 is-open 不会触发过渡，得先强制排一次版。
+  //
+  // **用强制重排而不是 requestAnimationFrame**：后者依赖帧回调，而在某些环境下
+  // 帧回调根本不派发（实测这个开发面板里就有），那样 is-open 永远加不上，面板会
+  // 一直停在「没打开」的缩小淡出状态。`animatePage` 用的是同一个办法。
+  void els.sheet.offsetWidth;
+  els.scrim.classList.add('is-open');
+  els.sheet.classList.add('is-open');
+  // 焦点移到面板容器本身，而不是第一个按钮。容器带 aria-labelledby，读屏会先念出
+  // 「对话框 + 标题」；直接聚焦 ✕ 的话用户只听到「关闭按钮」，不知道打开的是什么
+  // （TECH 7.3）。
+  els.sheet.focus();
 }
 
 function hidePanel() {
@@ -235,13 +260,14 @@ function hidePanel() {
   clearTimeout(hideTimer);
   els.scrim.classList.remove('is-open');
   els.sheet.classList.remove('is-open');
-  els.sheet.style.transform = '';
 
   const el = els;
   hideTimer = window.setTimeout(() => {
     el.scrim.hidden = true;
     el.sheet.hidden = true;
     el.body.replaceChildren();
+    el.footer.replaceChildren();
+    el.footer.hidden = true;
     closing = false;
   }, CLOSE_MS);
 
@@ -324,69 +350,4 @@ function historyDepth() {
 function onPopstate() {
   if (stack.length === 0 && historyDepth() === 0) return;
   syncToDepth(historyDepth());
-}
-
-// ─────────────────────────────────────────────────────────
-// 下滑关闭
-// ─────────────────────────────────────────────────────────
-
-function attachDrag() {
-  if (!els) return;
-  const area = els.dragArea;
-
-  let startY = 0;
-  let startAt = 0;
-  let dragging = false;
-
-  /** @param {PointerEvent} e */
-  const onDown = (e) => {
-    // 面板没开就别接手势，否则会去改一个隐藏元素
-    if (!els || e.button !== 0 || stack.length === 0) return;
-    dragging = true;
-    startY = e.clientY;
-    startAt = performance.now();
-    els.sheet.style.transition = 'none';
-    try {
-      // 指针在两次事件之间已经释放时这里会抛。捕获只是为了在指针移出拖拽区后
-      // 还能收到 pointermove，拿不到也不该让整个手势失效。
-      area.setPointerCapture(e.pointerId);
-    } catch {
-      /* 没捕获到就靠 area 上的监听，短距离拖动仍然可用 */
-    }
-  };
-
-  /** @param {PointerEvent} e */
-  const onMove = (e) => {
-    if (!dragging || !els) return;
-    // 只允许往下拖，往上拖不回弹是因为面板高度固定，往上没有内容
-    const dy = Math.max(0, e.clientY - startY);
-    els.sheet.style.transform = `translateY(${dy}px)`;
-  };
-
-  /** @param {PointerEvent} e */
-  const onUp = (e) => {
-    if (!dragging || !els) return;
-    dragging = false;
-    try {
-      area.releasePointerCapture(e.pointerId);
-    } catch {
-      /* 没捕获成功过，也就没有可释放的 */
-    }
-
-    const dy = Math.max(0, e.clientY - startY);
-    const elapsed = Math.max(1, performance.now() - startAt);
-    const velocity = dy / elapsed;
-    const shouldClose = dy > DRAG_CLOSE_PX || velocity > DRAG_CLOSE_VELOCITY;
-
-    els.sheet.style.transition = '';
-    // 先把位移清掉再决定关不关。反过来写的话，closeAll() 在栈已空时会提前返回，
-    // 那个位移就永久留在元素上了。
-    els.sheet.style.transform = '';
-    if (shouldClose) closeAll();
-  };
-
-  area.addEventListener('pointerdown', onDown);
-  area.addEventListener('pointermove', onMove);
-  area.addEventListener('pointerup', onUp);
-  area.addEventListener('pointercancel', onUp);
 }

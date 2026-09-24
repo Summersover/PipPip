@@ -130,9 +130,9 @@ export function renderDayList(params) {
     wrap.append(list);
   }
 
-  // 空状态也要有这个按钮：别让用户对着一句「这天还什么都没记」发呆（PRD 11）
-  wrap.append(buildAddButton(dateKey));
-  return { title: formatDayLabel(dateKey), body: wrap };
+  // 底栏：固定在卡片底边，不跟着列表滚走——记录一多，它就滑到看不见的地方了（PRD 9.5）。
+  // 空状态也走同一个底栏：别让用户对着一句「这天还什么都没记」发呆（PRD 11）。
+  return { title: formatDayLabel(dateKey), body: wrap, footer: buildAddButton(dateKey) };
 }
 
 /**

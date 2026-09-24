@@ -387,17 +387,19 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-/* 模板色板。★ 必须和 js/model.js 的 PRESET_COLORS 与 COLOR_CLASS 保持一致——
-   两边都是 8 个固定值，用类而不是行内 style 是为了不触发 CSP 的
+/* 模板色板，10 个，按色相排序。★ 必须和 js/model.js 的 PRESET_COLORS 与 COLOR_CLASS
+   保持一致——两边都是固定值，用类而不是行内 style 是为了不触发 CSP 的
    style-src 限制。tests/calendar.test.js 会检查两边没有漂移。 */
-.pip-coral { background: #e8734a; }
-.pip-amber { background: #dfa32b; }
-.pip-moss  { background: #7a9e4a; }
-.pip-pine  { background: #3e8e7e; }
-.pip-lake  { background: #4a8fbf; }
-.pip-iris  { background: #7c6bb8; }
-.pip-rose  { background: #d2607f; }
-.pip-slate { background: #7a7671; }
+.pip-coral  { background: #e8734a; }
+.pip-amber  { background: #dfa32b; }
+.pip-moss   { background: #7a9e4a; }
+.pip-lime   { background: #45ad51; }
+.pip-pine   { background: #3e8e7e; }
+.pip-lake   { background: #4a8fbf; }
+.pip-iris   { background: #7c6bb8; }
+.pip-orchid { background: #b955bd; }
+.pip-rose   { background: #d2607f; }
+.pip-slate  { background: #7a7671; }
 
 /* 模板缺失的兜底：只可能来自手工编辑或损坏的导入文件，不静默丢弃记录 */
 .pip-unknown {
@@ -542,39 +544,68 @@ button:disabled {
   display: none;
 }
 
+/* 居中悬浮卡片。
+   宽度：固定 326px（左右各留 32px 的「悬浮」比例），窄屏上跟着缩。
+   高度：固定 68dvh。这一档是算出来的——当前所有页面里最高的是模板编辑表单
+   （551px，含 10 色色板折行后的两行），844px 的屏上 68% = 574px 刚好不滚。内容更高的
+   页面（记录多的日子、模板多的宫格）在卡片内部滚，卡片本身不变高——高度稳定比省那点
+   空白重要，这和「日历固定 6 行」是同一个取舍。 */
 .sheet {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%;
+  top: 50%;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
-  max-height: 90dvh;
+  /* 用 vw 而不是 %：% 会被桌面端的滚动条吃掉十几像素，卡片宽度就跟着页面有没有滚动
+     变来变去。vw 不受滚动条影响，390px 屏上恒定 326。 */
+  width: 326px;
+  max-width: calc(100vw - 64px);
+  /* 高度固定的那一档用 vh：68% 的 844 = 574，比最高的页面（模板编辑表单 551）多 23px 余量，
+     而且**不随地址栏收放变**——dvh 会，卡片高度跟着跳就白固定了。
+     但软键盘弹起时可视高度会掉到 500 上下，68vh 会被切掉，所以再挂一个 dvh 的上限把它压下来：
+     正常情况下 72dvh（583）大于 68vh，由 68vh 说了算；键盘弹起时 dvh 变小，卡片跟着缩，
+     内容改为在卡片内部滚。 */
+  height: 68vh;
+  max-height: 72dvh;
   background: var(--surface);
-  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
-  /* 全项目唯一允许用阴影的地方 */
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-  transform: translateY(100%);
-  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-radius: var(--r-sheet);
+  /* 把超出圆角的东西裁掉。这一行必须写：.sheet-body 的滚动条是方块状的，会一直画到
+     卡片底边，不裁的话它横穿右下角那个圆角，看着像圆角被削平了一角。
+     裁的只是圆角以外的内容，卡片自己的 box-shadow 不受影响。 */
+  overflow: hidden;
+  /* 全项目唯一允许用阴影的地方。居中悬浮必须靠投影才浮得起来 */
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.24);
+  /* 收起时缩一点 + 淡出，不做位移（PRD 9.6） */
+  transform: translate(-50%, -50%) scale(0.96);
+  opacity: 0;
+  transition:
+    transform 240ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 200ms ease-out;
 }
 
 .sheet.is-open {
-  transform: none;
+  transform: translate(-50%, -50%);
+  opacity: 1;
 }
 
 .sheet[hidden] {
   display: none;
 }
 
-.sheet-drag {
+/* 卡片是 tabindex="-1" 的容器，打开时会被 .focus() 聚焦——那是为了让读屏先念出
+   「对话框 + 标题」（TECH 7.3）。它不是控件、Tab 也到不了，所以浏览器默认那圈焦点环
+   没有导航意义，只会给卡片描一圈橙边。子元素自己的焦点样式不受影响。 */
+.sheet:focus {
+  outline: none;
+}
+
+/* 顶部那条 38×5 的横条。**现在只是装饰**：卡片居中、高度还写死，它既不能拖关也不能
+   拖改高度。留着是因为它让这个容器和原来的底部弹窗看着是一路的。 */
+.sheet-grip {
   display: flex;
   justify-content: center;
   padding: 8px 0 4px;
-  /* 拖拽区不参与滚动，否则下滑手势会和滚动打架 */
-  touch-action: none;
 }
 
 .sheet-handle {
@@ -623,6 +654,15 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* 横向一律不滚。卡片比原来的底部弹窗窄了 64px，里面的东西必须自己收得住——
+     色板折行就是为了这个。真出了溢出宁可裁掉也不要给一条横向滚动条。 */
+  overflow-x: hidden;
+  /* 不画滚动条，但**照常能滚**——滚轮、触摸、键盘都不受影响，只是少一条杠。
+     两条声明都要写：scrollbar-width 是标准属性但 Safari 支持得晚，下面那条前缀形式
+     才是 Safari 唯一认的。
+     代价是丢掉了「下面还有内容」的提示：长内容会在一行中间被切断，就靠那个半行提示。
+     这个改动实际主要作用于桌面端——iOS / Android 本来就是悬浮式滚动条，平时不占位。 */
+  scrollbar-width: none;
   /* 负 margin + 等量 padding：内容往上钻到 header 底下，滚动时在毛玻璃后面
      模糊滑过（iOS 的 scroll edge 效果），但初始位置仍然在 header 下面。 */
   margin-top: calc(-1 * var(--sheet-header-h));
@@ -630,6 +670,24 @@ button:disabled {
   /* iOS 的滚动是带惯性的，且滚到头不回弹整页 */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+/* 隐藏滚动条的前缀版本，Safari 只认这一条（标准属性那条在上面） */
+.sheet-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* 固定在卡片底边的动作条。
+   和 header 不一样，它**底下没有内容滚过**——body 是独立的滚动容器，内容在 body 的
+   底边就被切断了，钻不到 footer 下面去。所以这里不需要发丝线也不需要毛玻璃，靠间距
+   分隔就够了（PRD 9.1 的「不用边框划分区块，用间距」）。 */
+.sheet-footer {
+  flex: none;
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+
+.sheet-footer[hidden] {
+  display: none;
 }
 
 /* 页面切换：横向位移 + 淡入，180ms ease-out（PRD 9.6） */
@@ -655,11 +713,13 @@ button:disabled {
   }
 }
 
-.sheet-body.page-in {
+.sheet-body.page-in,
+.sheet-footer.page-in {
   animation: sheet-page-in 180ms ease-out;
 }
 
-.sheet-body.page-in-back {
+.sheet-body.page-in-back,
+.sheet-footer.page-in-back {
   animation: sheet-page-in-back 180ms ease-out;
 }
 
@@ -733,7 +793,6 @@ button:disabled {
   display: block;
   width: 100%;
   min-height: 44px;
-  margin-top: var(--sp-4);
   padding: var(--sp-3) 0;
   font-size: 17px;
   color: var(--accent);
@@ -1260,18 +1319,18 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-/* 8 个色块排一行。可点区域做满 44×44（PRD 9.4），里面画 28px 的圆；
-   space-between 把它们摊满一行，390px 屏上圆与圆之间约 19px 空隙。 */
+/* 10 个色块排成 5 列两行。可点区域做满 44×44（PRD 9.4），里面画 28px 的圆。
+   必须折行：一行 10 个要 440px，连整屏宽的底部弹窗（内容区 358px）都装不下，更别说
+   326px 的居中卡片（内容区 294px）。列宽固定 44px，剩余宽度由 space-between 摊开。 */
 .tpl-swatches {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
   justify-content: space-between;
 }
 
 .tpl-swatch {
   display: grid;
   place-items: center;
-  flex: none;
   width: 44px;
   height: 44px;
 }
@@ -1390,13 +1449,8 @@ button:disabled {
     margin: 0 auto;
   }
 
-  /* sheet 是 fixed 覆盖层，不参与 .app 的宽度限制。不跟着一起居中就会变成
-     「页面居中、弹窗铺满整屏」——模板方块会排成十几列（PRD 9.8）。
-     left/right 都为 0 时，auto 外边距把这块居中。 */
-  .sheet {
-    max-width: 480px;
-    margin: 0 auto;
-  }
+  /* 弹窗不用再单独处理宽度了：它是 326px 的居中卡片，靠 left/top + translate 居中，
+     在什么屏宽下都是这个尺寸和位置（PRD 9.8）。 */
 }
 
 /* ── 降低动效 ─────────────────────────────────────────────── */

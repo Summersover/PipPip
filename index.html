@@ -103,11 +103,11 @@
 
 </main>
 
-<!-- 弹窗。只有一个容器，内部是页面栈，不堆叠多层（TECH 7.1） -->
+<!-- 弹窗。居中的悬浮卡片，只有一个容器，内部是页面栈，不堆叠多层（TECH 7.1） -->
 <div class="scrim" id="scrim" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" hidden>
-  <!-- 顶部拖拽区：往下拖超过阈值就关闭 -->
-  <div class="sheet-drag" id="sheet-drag">
+  <!-- 顶部那条横条现在只是装饰：卡片居中、高度写死，它不承担任何手势（PRD 9.5） -->
+  <div class="sheet-grip">
     <span class="sheet-handle"></span>
   </div>
   <header class="sheet-header">
@@ -124,6 +124,9 @@
     </button>
   </header>
   <div class="sheet-body" id="sheet-body"></div>
+  <!-- 固定在卡片底边的动作条。内容长的页面把主操作放这儿，它不跟着内容滚走（PRD 9.5）。
+       页面没有底栏动作时是 hidden 的。 -->
+  <div class="sheet-footer" id="sheet-footer" hidden></div>
 </section>
 
 <script type="module" src="./js/app.js"></script>
