@@ -956,6 +956,9 @@ service worker 缓存极顽固，改完代码看不到效果是常态：
 - DevTools → Application → Service Workers → 勾 **Update on reload**
 - 改完 `sw.js` 或 `CACHE` 版本号后，勾 **Bypass for network** 或直接 **Unregister** 再刷新
 - 测离线：Application → 勾 **Offline**，然后刷新
+- **普通刷新不算数。** 只改了 `css/app.css` 而没跑 `npm run stamp`，`CACHE` 名（8.4）没变，浏览器不认为 SW 有新版本，旧缓存继续发旧文件；就算跑了 `stamp`，新 SW 也会停在 waiting（8.3 第 1 点不自动 `skipWaiting`），当前页面仍由旧 SW 供旧缓存。实测过一次：改完 `.sheet-body` 的 margin / padding 后普通刷新，读到的仍是 `margin-top: -52px`（旧 CSS）
+- 所以「改完看不到变化」的第一处理是：关掉该 origin 的**所有**标签页再打开（或 Unregister / 勾 Update on reload），不要连着改第三遍代码
+- 典型症状：弹窗顶部横条下方有一道灰影、或横条和标题的白色底看着像「拼接」的——那是半透明 header 那版旧 CSS，不是当前的样式表
 
 ### 10.4 测试
 
@@ -984,10 +987,11 @@ npm run test:tz   # 在 5 个时区下各跑一遍 ← 关键
 
 `tools/check-tz.js` 在 Asia/Shanghai、UTC、America/New_York、Pacific/Kiritimati（UTC+14）、Pacific/Midway（UTC-11）各跑一遍。跑多时区不是「覆盖时区分支」，而是要证明 `dates.js` **根本不依赖时区**——它只用本地分量方法。
 
-**两个实测出来的坑**（都踩过，写在这里省得再踩）：
+**三个实测出来的坑**（都踩过，写在这里省得再踩）：
 
 1. **`TZ=Asia/Shanghai node ...` 这种命令行写法在 Git Bash 下不生效。** `process.env.TZ` 会是 `undefined`，时区静默回落到系统值——于是「多时区测试」假装在测，实际五个时区跑的是同一个。Windows cmd 下 `TZ=x cmd` 同样不生效。**必须用 `spawnSync` 显式传 env**，`check-tz.js` 就是这么做的。
-2. **`tools/` 下的脚本不能叫 `test-*.js`。** Node 的测试运行器默认会把 `test-*.js` 当成测试文件自动抓取，那样 `check-tz.js` 会被嵌套执行一遍（在 `node --test` 里再 spawn 五个 `node --test`）。所以它叫 `check-tz` 而不是 `test-tz`，并且 npm script 里用显式 glob 而不是靠自动发现。
+2. **`tools/` 下的脚本不能叫 `test-*.js`。** Node 的测试运行器默认会把 `test-*.js` 当成测试文件自动抓取，那样 `check-tz.js` 会被嵌套执行一遍（在 `node --test` 里再 spawn 五个 `node --test`）。所以它叫 `check-tz` 而不是 `test-tz`，并且 `tests/` 下的文件是显式列出来传给 `--test` 的，不靠自动发现。
+3. **`--test` 的路径参数不能带通配符（Node 20）。** 通配符路径是 Node 21+ 才认的，20 上 `node --test "tests/**/*.test.js"` 直接报 `Could not find ...`——五个时区一起变红，看着像时区逻辑崩了，其实只是参数没被识别。所以 `npm test` 传的是目录（`node --test tests/`），`tools/check-tz.js` 用 `readdirSync` 把 `tests/` 下的 `*.test.js` 列成显式路径。
 
 #### 时区断言要「从偏移推导」，不要硬编码时刻
 

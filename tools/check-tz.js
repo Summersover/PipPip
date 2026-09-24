@@ -18,15 +18,32 @@
  *
  * ★ 文件名刻意叫 check-tz 而不是 test-tz：Node 的测试运行器默认会把
  *   `test-*.js` 当成测试文件自动抓取，那样这个脚本会被嵌套执行一遍。
- *   同理，npm script 里用显式 glob 而不是靠自动发现。
+ *   同理，这里显式列出测试文件，不靠自动发现。
  *
  *   npm run test:tz
  */
 
 import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-/** 显式 glob。靠自动发现会把 tools/ 下的脚本也当成测试文件。 */
-const TEST_GLOB = 'tests/**/*.test.js';
+/**
+ * 显式列出 `tests/` 下的测试文件。
+ *
+ * **不要把带通配符的路径交给 `--test`**：`--test` 的路径参数支持通配符是 Node 21+ 的
+ * 事，Node 20 会直接报 `Could not find ...`，于是五个时区全红——看着像时区出了问题，
+ * 其实是参数没被识别（本机就是 20.18）。
+ */
+const TESTS_DIR = fileURLToPath(new URL('../tests/', import.meta.url));
+const TEST_FILES = readdirSync(TESTS_DIR)
+  .filter((name) => name.endsWith('.test.js'))
+  .map((name) => join(TESTS_DIR, name));
+
+if (TEST_FILES.length === 0) {
+  console.error(`✗ ${TESTS_DIR} 下没找到 *.test.js`);
+  process.exit(1);
+}
 
 /** @type {{ zone: string, why: string }[]} */
 const ZONES = [
@@ -40,7 +57,7 @@ const ZONES = [
 let failed = 0;
 
 for (const { zone, why } of ZONES) {
-  const result = spawnSync(process.execPath, ['--test', TEST_GLOB], {
+  const result = spawnSync(process.execPath, ['--test', ...TEST_FILES], {
     env: { ...process.env, TZ: zone },
     encoding: 'utf8',
   });

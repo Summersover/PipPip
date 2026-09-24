@@ -570,13 +570,22 @@ button:disabled {
      变来变去。vw 不受滚动条影响，390px 屏上恒定 326。 */
   width: 326px;
   max-width: calc(100vw - 64px);
-  /* 高度固定的那一档用 vh：68% 的 844 = 574，比最高的页面（模板编辑表单 551）多 23px 余量，
-     而且**不随地址栏收放变**——dvh 会，卡片高度跟着跳就白固定了。
-     但软键盘弹起时可视高度会掉到 500 上下，68vh 会被切掉，所以再挂一个 dvh 的上限把它压下来：
-     正常情况下 72dvh（583）大于 68vh，由 68vh 说了算；键盘弹起时 dvh 变小，卡片跟着缩，
-     内容改为在卡片内部滚。 */
-  height: 68vh;
-  max-height: 72dvh;
+  /* 高度随内容长，但有上下限。
+     **下限 40vh**：最空的页面（某天还没记任何东西）自然高度只有 239px（占屏 28%），不加
+     下限就是一条扁提示条，不像弹窗。40% 也正好压在「记录详情 343 / 打卡第二步 349」之上，
+     所以从这一档起这几个偏短的页面高度一致——从列表点进详情不会再跳，本来固定高度想要的
+     就是这个效果。
+     **上限 68vh**：最高的一页是模板编辑表单 551px（65.3%），上限不能低于它，否则「删除」
+     那一行会被藏到需要滚动才看得见。软键盘弹起时可视高度掉到 500 上下，所以再挂一个 dvh
+     的上限把它压下来：正常情况下 72dvh（583）大于 68vh、由 68vh 说了算，键盘弹起时 dvh
+     变小、卡片跟着缩，内容改为在卡片内部滚。（下限用 vh 而不是 dvh：它是稳定的一档，
+     338px 在键盘压过的可视区里也放得下。） */
+  min-height: 40vh;
+  /* 必须用 min() 显式取小。写成 `max-height: 68vh; max-height: 72dvh;` 是不行的——
+     两条声明是覆盖关系而非取小，后一条会把前一条整个盖掉（实测上限变成 72% 而不是 68%）。
+     以前高度固定时这么写没问题，因为 height 才是主要约束、max-height 只负责钳制；
+     现在高度交给内容了，max-height 成了唯一约束，覆盖的后果就直接暴露成 72%。 */
+  max-height: min(68vh, 72dvh);
   background: var(--surface);
   border-radius: var(--r-sheet);
   /* 把超出圆角的东西裁掉。这一行必须写：.sheet-body 的滚动条是方块状的，会一直画到
@@ -609,12 +618,16 @@ button:disabled {
   outline: none;
 }
 
-/* 顶部那条 38×5 的横条。**现在只是装饰**：卡片居中、高度还写死，它既不能拖关也不能
-   拖改高度。留着是因为它让这个容器和原来的底部弹窗看着是一路的。 */
+/* 顶部那条 38×5 的横条。**现在只是装饰**：卡片居中、高度随内容，它既不能拖关也不能
+   拖改高度。留着是因为它让这个容器和原来的底部弹窗看着是一路的。
+
+   `flex: none` 不能省：flex 项目默认会被压缩，内容一长横条就会掉到十几像素。横条和
+   header 是卡片顶部那段骨架，高度不该随内容变。 */
 .sheet-grip {
   display: flex;
   justify-content: center;
   padding: 8px 0 4px;
+  flex: none;
 }
 
 .sheet-handle {
@@ -631,14 +644,20 @@ button:disabled {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
-  /* body 用负 margin 滚到这条下面，所以要抬起来盖住它 */
+  /* 高度必须实打实是 52px：它既是卡片顶部骨架的一段，也是 body 滚动视口的顶边——
+     内容滚上来正好在这条底边上被切断。flex 项目默认会被压缩，内容超高时这里会掉到
+     45px，导航栏就矮一截，所以 height 定死 + flex: none 一起上。
+     z-index 只是防御：body 已经不会钻到这条下面了（见 .sheet-body）。 */
   position: relative;
   z-index: 1;
+  flex: none;
   height: var(--sheet-header-h);
   padding: 0 var(--sp-3);
-  background: var(--surface-translucent);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  /* 底色用**不透明**的 --surface，不用半透明 + 毛玻璃。这条导航栏是「纸」的一部分，
+     按 PRD 9.1 该用底色分层而不是叠加层；它下面也没有内容滚过（见 .sheet-body），
+     毛玻璃只会白给一层合成开销。
+     底边那条发丝线是内容被切断的那条边界。 */
+  background: var(--surface);
   border-bottom: var(--hairline) solid var(--separator);
 }
 
@@ -672,10 +691,12 @@ button:disabled {
      代价是丢掉了「下面还有内容」的提示：长内容会在一行中间被切断，就靠那个半行提示。
      这个改动实际主要作用于桌面端——iOS / Android 本来就是悬浮式滚动条，平时不占位。 */
   scrollbar-width: none;
-  /* 负 margin + 等量 padding：内容往上钻到 header 底下，滚动时在毛玻璃后面
-     模糊滑过（iOS 的 scroll edge 效果），但初始位置仍然在 header 下面。 */
-  margin-top: calc(-1 * var(--sheet-header-h));
-  padding: var(--sheet-header-h) var(--sp-4) var(--sp-4);
+  /* 滚动视口的顶边**就是 header 的底边**（= 那条发丝线），内容在这里被切断。
+     早先这里是「负 margin 52px + 等量 padding」的错位手法，让内容钻到 header 底下去，
+     指望 header 的不透明底色把它盖住。那等于把「不漏」建立在别人的绘制顺序上，
+     现在去掉了：内容在物理上画不进 header 和顶部横条那一带。
+     顶部不用额外留白——列表行自己带内边距。 */
+  padding: 0 var(--sp-4) var(--sp-4);
   /* iOS 的滚动是带惯性的，且滚到头不回弹整页 */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
