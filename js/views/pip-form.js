@@ -56,33 +56,41 @@ function buildIcon(template, iconCls, dotCls) {
 }
 
 /**
- * 一个模板方块：emoji + 标题，底部一条与方块同宽的模板颜色（PRD 9.5）。
+ * 选择列表里的一行：emoji + 标题 + 该模板颜色的圆点 + `›`。
+ *
+ * 和模板列表用同一套行样式（PRD 9.5）——为什么不做成方块：行占满整宽，20 字的标题也
+ * 看得全，而方块一格只有 90px 宽、中文字放不下四个。模板的名字是这里最要紧的信息。
  *
  * @param {import('../model.js').Template} template
  * @param {() => void} onPick
  * @returns {HTMLLIElement}
  */
-function buildTile(template, onPick) {
+function buildRow(template, onPick) {
   const li = document.createElement('li');
 
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'tpl-tile';
+  btn.className = 'tpl-row';
   btn.addEventListener('click', onPick);
 
-  const body = document.createElement('span');
-  body.className = 'tpl-body';
-  body.append(buildIcon(template, 'tpl-emoji', 'tpl-dot'));
+  const main = document.createElement('span');
+  main.className = 'tpl-row-main';
+  main.append(buildIcon(template, 'tpl-row-icon', 'tpl-row-dot'));
 
   const title = document.createElement('span');
-  title.className = 'tpl-title';
+  title.className = 'tpl-row-title';
   title.textContent = template.title;
-  body.append(title);
+  main.append(title);
 
-  const bar = document.createElement('span');
-  bar.className = `tpl-bar ${COLOR_CLASS[template.color] ?? 'pip-unknown'}`;
+  const color = document.createElement('span');
+  color.className = `tpl-row-color pip ${COLOR_CLASS[template.color] ?? 'pip-unknown'}`;
 
-  btn.append(body, bar);
+  const chevron = document.createElement('span');
+  chevron.className = 'tpl-chevron';
+  chevron.textContent = '›';
+  chevron.setAttribute('aria-hidden', 'true');
+
+  btn.append(main, color, chevron);
   li.append(btn);
   return li;
 }
@@ -242,12 +250,12 @@ export function renderPipCreate(params) {
       );
       step.append(noteStep.el);
     } else {
-      // 第一步没有主动作——模板方块本身就是那一步的动作
+      // 第一步没有主动作——模板行本身就是那一步的动作
       footer.replaceChildren();
       const list = document.createElement('ul');
-      list.className = 'tpl-grid';
+      list.className = 'tpl-list';
       for (const template of templates) {
-        list.append(buildTile(template, () => showStep(template, 'forward')));
+        list.append(buildRow(template, () => showStep(template, 'forward')));
       }
       step.append(list);
     }

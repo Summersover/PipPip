@@ -18,15 +18,22 @@ import { dotsForDay } from '../js/views/calendar.js';
 const css = fs.readFileSync(new URL('../css/app.css', import.meta.url), 'utf8');
 
 /**
- * 从 app.css 里抓出 `.pip-xxx { background: #rrggbb; }` 形式的规则。
- * `.pip-unknown` 用的是 var()，不会匹配到——它本来就不属于预设色板。
+ * 从 app.css 里抓出每个 `.pip-xxx` 规则体中的第一个色值。
+ *
+ * 按规则体抓而不是匹配 `background: #hex`：色板类现在写的是 `--pip-color: #hex` +
+ * `background: var(--pip-color)`，因为模板方块还要用同一个颜色画一圈细边。
+ * `.pip-unknown` 体内只有 var()，抓不到色值，自然不会进这份清单——它本来也不属于预设色板。
+ *
  * @returns {Map<string, string>} 类名后缀 → 小写色值
  */
 function cssPalette() {
   const found = new Map();
-  const re = /\.pip-([a-z]+)\s*\{\s*background:\s*(#[0-9a-fA-F]{6})\s*;\s*\}/g;
+  const re = /\.pip-([a-z]+)\s*\{([^}]*)\}/g;
   let m;
-  while ((m = re.exec(css)) !== null) found.set(m[1], m[2].toLowerCase());
+  while ((m = re.exec(css)) !== null) {
+    const hex = /#[0-9a-fA-F]{6}/.exec(m[2]);
+    if (hex) found.set(m[1], hex[0].toLowerCase());
+  }
   return found;
 }
 

@@ -210,7 +210,10 @@ function buildConfirm(template, count, onCancel, onDelete) {
 }
 
 /**
- * 列表里的一行：emoji + 标题（+ 「已停用」）+ 颜色圆点 + `›`（PRD 7.5）。
+ * 列表里的一行：emoji + 标题（+「已停用」）+ 该模板颜色的圆点 + `›`。
+ *
+ * 和打卡弹窗选模板共用同一套行样式（PRD 9.5）。行占满整宽，20 字的标题也看得全——
+ * 这是这一页最要紧的信息；方块一格只有 90px 宽，四个中文字就截断了。
  *
  * @param {import('../model.js').Template} template
  * @returns {HTMLLIElement}
@@ -265,6 +268,7 @@ export function renderTemplateList() {
 
   const wrap = document.createElement('div');
 
+  // 列表，和打卡弹窗那边共用一套行样式（PRD 9.5）
   const list = document.createElement('ul');
   list.className = 'tpl-list';
 
@@ -274,12 +278,12 @@ export function renderTemplateList() {
 
   wrap.append(list);
 
-  // 新建固定在卡片底边，不跟着列表滚走——模板一多，原来那个「列表末尾一行」就要滑到
-  // 底才够得着（PRD 9.5）。仍然做成一行而不是悬浮按钮：新建是低频动作，不该在界面上
-  // 制造视觉噪音（PRD 7.5）。
+  // 新建固定在卡片底边，不跟着网格滚走——模板一多，原来那个「列表末尾一行」就要滑到
+  // 底才够得着（PRD 9.5）。走次级色而不是强调色：新建是低频动作，不该像「＋ 确定」
+  // 那样抢（PRD 7.5）。
   const add = document.createElement('button');
   add.type = 'button';
-  add.className = 'tpl-row tpl-row--new';
+  add.className = 'btn-primary is-quiet';
   add.textContent = '＋ 新建模板';
   add.addEventListener('click', () => intent('new-template'));
 
