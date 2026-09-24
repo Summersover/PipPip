@@ -683,7 +683,7 @@ function syncToDepth(wanted) {
 
 `name` 和 `short_name` 都是 `Pip`——三个字母，iOS 图标下不会截断。
 
-`start_url` 和 `scope` 用**相对路径** `./`，不能用 `/`。因为 GitHub Pages 是 `username.github.io/pip-app/` 这种带路径前缀的形式，写 `/` 会指向域名根而不是项目。
+`start_url` 和 `scope` 用**相对路径** `./`，不能用 `/`。因为 GitHub Pages 是 `summersover.github.io/PipPip/` 这种带路径前缀的形式，写 `/` 会指向域名根而不是项目。
 
 **maskable 图标**：Android 上图标会被裁成圆形/方形/水滴形。maskable 版本的图形必须落在中心 80% 的「安全区」内，否则边缘会被切掉。内容就是一个居中的圆点。
 
@@ -1080,11 +1080,18 @@ function logEvent(kind, detail) {
 - 根目录放 `.nojekyll`，禁用 Jekyll 处理（避免它扫描、忽略某些文件、拖慢部署）
 - HTTPS 由 Pages 自动提供，service worker 依赖它
 
-**仓库名**：`pip` 会撞 Python 的 pip 搜索污染，用 `pip-app` 或 `getpip`。
+**仓库**：`https://github.com/Summersover/PipPip.git`，站点地址因此是 `https://summersover.github.io/PipPip/`。**这个 origin 定死了不要再换**（见 13.3）。
+
+```bash
+git remote add origin https://github.com/Summersover/PipPip.git
+git push -u origin main
+```
+
+**仓库名**：不要叫 `pip`——会和 Python 的 pip 撞搜索污染，所以在 `pip-app` / `getpip` 里挑，最终定的是 `PipPip`。
 
 ### 13.2 所有路径必须相对
 
-因为站点在 `username.github.io/pip-app/` 下，**绝对路径 `/js/app.js` 会指向域名根，404**。所有引用用 `./`：
+因为站点在 `summersover.github.io/PipPip/` 下，**绝对路径 `/js/app.js` 会指向域名根，404**。所有引用用 `./`：
 
 ```html
 <script type="module" src="./js/app.js"></script>

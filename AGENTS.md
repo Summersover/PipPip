@@ -46,7 +46,7 @@
 
 ## 踩过的坑
 
-- 换域名 = 换 origin = 旧数据读不到。**域名一旦发出去就定死**
+- 换域名 = 换 origin = 旧数据读不到。**域名一旦发出去就定死**——本项目定的是 `https://summersover.github.io/PipPip/`（仓库 `Summersover/PipPip`，仓库名改了 URL 也跟着变）
 - iOS 上「添加到主屏幕」的应用有独立存储，和 Safari 里是两份数据，必须引导用户只用主屏幕图标
 - `file://` 和 `localhost` 各自是独立 origin，本地测试的数据不会出现在线上
 - **Git Bash 下 `TZ=Asia/Shanghai node ...` 这种写法不生效**——`process.env.TZ` 会是 `undefined`，时区静默回落成系统值。多时区测试必须用 `spawnSync` 显式传 env，否则会假装在测五个时区、实际跑的是同一个
