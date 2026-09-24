@@ -407,7 +407,23 @@ button:disabled {
   }
 }
 
-@keyframes pip-fade {
+/* 删记录后那个点淡出：120ms ease-in（PRD 9.6）。删是从详情页发起的、弹窗盖着日历，
+   这一下通常看不见——但把它做对，日历的状态就永远是「删完就已经没有那个点」，
+   不依赖弹窗恰好遮着。 */
+.pip.is-removing {
+  animation: pip-out 120ms ease-in;
+}
+
+@keyframes pip-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: scale(0);
+  }
+}
+
+@keyframes pip-fade-in {
   from {
     opacity: 0;
   }
@@ -416,11 +432,24 @@ button:disabled {
   }
 }
 
+@keyframes pip-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* 降低动效时缩放降级为纯透明度（PRD 9.6）。上面那条全局规则把 animation-duration
-   压到 0.01ms 了，所以这里必须带 !important——靠选择器特异性拿回一段真实的淡入。 */
+   压到 0.01ms 了，所以这里必须带 !important——靠选择器特异性拿回一段真实的淡入淡出。 */
 @media (prefers-reduced-motion: reduce) {
   .pip.is-new {
-    animation: pip-fade 200ms ease-out !important;
+    animation: pip-fade-in 200ms ease-out !important;
+  }
+
+  .pip.is-removing {
+    animation: pip-fade-out 120ms ease-in !important;
   }
 }
 
@@ -641,9 +670,16 @@ button:disabled {
   grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: var(--sp-3);
+  width: 100%;
   /* 44pt 是 iOS 的触摸目标下限 */
   min-height: 44px;
   padding: var(--sp-3) 0;
+  /* 整行可点，点进详情（PRD 7.3） */
+  text-align: left;
+}
+
+.day-row:active {
+  background: var(--fill);
 }
 
 .day-time {
@@ -667,10 +703,77 @@ button:disabled {
 }
 
 .day-note {
+  display: block;
   grid-column: 2 / -1;
   margin: 2px 0 0;
   font-size: 15px;
   color: var(--text-secondary);
+  /* 超过一行截断（PRD 7.3）。备注上限 200 字，不截会把行撑得老高。 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 底部的「＋ 添加打卡」。用强调色——它通向的是产品的主操作，而 PRD 9.1 把强调色
+   留给「今天」的填充圆和打卡动作。居中排，和 PRD 7.3 的示意图一致。 */
+.day-add {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) 0;
+  font-size: 17px;
+  color: var(--accent);
+  text-align: center;
+}
+
+.day-add:active {
+  background: var(--fill);
+}
+
+/* ── 打卡详情（pip-detail） ───────────────────────────────── */
+
+.pip-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.pip-detail-template {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 17px;
+}
+
+.pip-detail-color.pip {
+  width: 10px;
+  height: 10px;
+  margin-left: auto;
+}
+
+.pip-detail-when {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+/* 备注框在详情页紧跟删除按钮，不要 .pip-note 为打卡弹窗留的那段下边距 */
+.pip-detail .pip-note {
+  margin-bottom: 0;
+}
+
+.pip-detail-remove {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--sp-2);
+  font-size: 17px;
+  color: var(--danger);
+  text-align: left;
+}
+
+.pip-detail-remove:active {
+  background: var(--fill);
 }
 
 /* ── 打卡流程（pip-form） ──────────────────────────────────── */
@@ -949,18 +1052,21 @@ button:disabled {
   gap: var(--sp-6);
 }
 
-.tpl-field {
+/* ── 表单字段 ─────────────────────────────────────────────── */
+
+/* 通用件：模板编辑表单和记录详情都用（CSS 是全局的，没必要各写一份）。 */
+.field {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
 }
 
-.tpl-field-label {
+.field-label {
   font-size: 13px;
   color: var(--text-secondary);
 }
 
-.tpl-input {
+.field-input {
   display: block;
   width: 100%;
   height: 44px;
@@ -975,7 +1081,7 @@ button:disabled {
   appearance: none;
 }
 
-.tpl-input::placeholder {
+.field-input::placeholder {
   color: var(--text-tertiary);
 }
 

@@ -17,7 +17,15 @@
  */
 
 import { COLOR_CLASS, COLOR_NAME, PRESET_COLORS, TITLE_MAX, orderedTemplates, pickColor } from '../model.js';
-import { addTemplate, index, intent, removeTemplate, state, updateTemplate } from '../state.js';
+import {
+  addTemplate,
+  index,
+  intent,
+  removeTemplate,
+  setPendingFlush,
+  state,
+  updateTemplate,
+} from '../state.js';
 
 /**
  * 图标输入框的长度上限。
@@ -27,25 +35,6 @@ import { addTemplate, index, intent, removeTemplate, state, updateTemplate } fro
  * （带 ZWJ 的、带变体选择符的），又放不下一段文字。
  */
 const ICON_MAX = 16;
-
-/**
- * 编辑表单的保存动作，由表单渲染时登记。
- *
- * 失焦正常发生时它已经被调过一次了（值没变时不会真的写），所以它兜的是「打完字直接
- * 切后台 / 杀进程」——那种情况不会有失焦（TECH 3.4）。
- *
- * @type {(() => Promise<unknown>) | null}
- */
-let savePending = null;
-
-/**
- * 把还没落盘的编辑补写一次。app.js 在页面被藏起来时调（TECH 3.4）。
- *
- * @returns {Promise<void>}
- */
-export async function flushPendingEdit() {
-  await savePending?.();
-}
 
 /**
  * 模板的图标：设了 emoji 就用 emoji，没设就用一个该模板颜色的圆点（PRD 7.5）。
@@ -82,15 +71,15 @@ function buildIcon(template, iconCls, dotCls) {
  */
 function buildField(label, value, placeholder, maxLength) {
   const el = document.createElement('label');
-  el.className = 'tpl-field';
+  el.className = 'field';
 
   const caption = document.createElement('span');
-  caption.className = 'tpl-field-label';
+  caption.className = 'field-label';
   caption.textContent = label;
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'tpl-input';
+  input.className = 'field-input';
   input.value = value;
   input.placeholder = placeholder;
   input.maxLength = maxLength;
@@ -272,7 +261,7 @@ function buildRow(template) {
  */
 export function renderTemplateList() {
   // 列表成为栈顶就意味着编辑表单已经离开了，那个保存动作不必再留着
-  savePending = null;
+  setPendingFlush(null);
 
   const wrap = document.createElement('div');
 
@@ -327,9 +316,9 @@ export function renderTemplateEdit(params) {
   });
 
   const colorField = document.createElement('div');
-  colorField.className = 'tpl-field';
+  colorField.className = 'field';
   const colorLabel = document.createElement('span');
-  colorLabel.className = 'tpl-field-label';
+  colorLabel.className = 'field-label';
   colorLabel.textContent = '颜色';
   colorField.append(colorLabel, swatches.el);
 
@@ -384,19 +373,15 @@ export function renderTemplateEdit(params) {
   }
 
   // ── 编辑：失焦保存 + 停用/删除 ────────────────────────────
-  savePending = save;
+  setPendingFlush(save);
 
   // 收窄后的引用。`paintActions` 是提升的函数声明，可能被提到上面的检查之前调用，
   // 所以 TS 不认外层对 `existing` 的收窄。
   const editing = existing;
 
   // focusout 会冒泡，所以挂在表单容器上一次就够。失焦即保存，不逐键保存。
+  // 返回键、下滑、Escape 这些不会失焦的离开方式由 sheet.js 补写（TECH 3.4）。
   wrap.addEventListener('focusout', () => void save());
-  // Escape 关弹窗不会让输入框失焦，而 sheet.js 的处理器挂在 document 上、比这里晚，
-  // 所以在这里先把值补写一次
-  wrap.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') void save();
-  });
 
   const actions = document.createElement('div');
   actions.className = 'tpl-actions';
@@ -425,7 +410,7 @@ export function renderTemplateEdit(params) {
         actions.replaceChildren(
           buildConfirm(editing, count, paintActions, async () => {
             await removeTemplate(editing.id);
-            savePending = null;
+            setPendingFlush(null);
             intent('back');
           }),
         );

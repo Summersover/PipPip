@@ -3,14 +3,14 @@
  */
 
 import { toDateKey } from './dates.js';
-import { goToday, index, mountHost, refreshToday, reindex, state } from './state.js';
+import { flushPending, goToday, index, mountHost, refreshToday, reindex, state } from './state.js';
 import * as store from './store.js';
 import { clearBanner, mountBanner, showBanner } from './views/banner.js';
 import { renderCalendar, renderCell, renderTitle } from './views/calendar.js';
-import { renderDayList } from './views/day.js';
+import { renderDayList, renderPipDetail } from './views/day.js';
 import { renderPipCreate } from './views/pip-form.js';
 import { closeAll, mountSheet, push, registerPage } from './views/sheet.js';
-import { flushPendingEdit, renderTemplateEdit, renderTemplateList } from './views/templates.js';
+import { renderTemplateEdit, renderTemplateList } from './views/templates.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
@@ -74,6 +74,27 @@ function renderCellAt(dateKey, pipId) {
   if (pipId) gridEl.querySelector(`.pip[data-pip="${pipId}"]`)?.classList.add('is-new');
 }
 
+/**
+ * 让某个点先淡出，再重画那一格（PRD 9.6：删除记录后 pip 消失，120ms ease-in）。
+ *
+ * **不 await**：删记录是从详情页发起的，弹窗盖着日历，这一下通常看不见，为它拖慢
+ * 「删完退回列表」不值得。淡出照做，日历的状态因此永远是「删完就已经没有那个点」，
+ * 不依赖弹窗恰好遮着。
+ *
+ * @param {string} pipId
+ * @param {import('./dates.js').DateKey} dateKey
+ */
+function fadeOutDotThenRedraw(pipId, dateKey) {
+  const dot = gridEl?.querySelector(`.pip[data-pip="${pipId}"]`);
+  if (!dot) {
+    renderCellAt(dateKey);
+    return;
+  }
+  dot.classList.add('is-removing');
+  // 时长必须和 app.css 里 .pip.is-removing 的 animation 一致
+  window.setTimeout(() => renderCellAt(dateKey), 120);
+}
+
 // ─────────────────────────────────────────────────────────
 // 装配：视图做不了的那两件事
 // ─────────────────────────────────────────────────────────
@@ -94,10 +115,15 @@ function mountAppHost() {
      * 刻意**不**在这里关弹窗：打卡要关（PRD 7.2），改模板标题不该关。关不关是各个
      * 流程自己的事，由视图发 `close-sheet` 意图决定。
      */
-    async write({ dateKey, pipId, calendar } = {}) {
+    async write({ dateKey, pipId, removedPipId, calendar } = {}) {
       await persist();
-      if (calendar) render();
-      else if (dateKey) renderCellAt(dateKey, pipId);
+      if (calendar) {
+        render();
+        return;
+      }
+      if (!dateKey) return;
+      if (removedPipId) fadeOutDotThenRedraw(removedPipId, dateKey);
+      else renderCellAt(dateKey, pipId);
     },
 
     intent(name, params = {}) {
@@ -107,6 +133,13 @@ function mountAppHost() {
           break;
         case 'edit-template':
           push('template-edit', { templateId: params.templateId });
+          break;
+        case 'new-pip':
+          // 从某日列表进来时目标日期是那一天，补记就走这条（PRD 7.2）
+          push('pip-create', { dateKey: params.dateKey });
+          break;
+        case 'edit-pip':
+          push('pip-detail', { pipId: params.pipId, dateKey: params.dateKey });
           break;
         case 'close-sheet':
           closeAll();
@@ -171,6 +204,7 @@ async function boot() {
   mountSheet();
   mountAppHost();
   registerPage('day-list', renderDayList);
+  registerPage('pip-detail', renderPipDetail);
   registerPage('pip-create', renderPipCreate);
   registerPage('template-list', renderTemplateList);
   registerPage('template-edit', renderTemplateEdit);
@@ -266,7 +300,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     // 被藏起来时补一次还没落盘的编辑：打完字直接切后台不会有失焦，那个值就丢了
     // （TECH 3.4）。失败了不该打断，所以不 await。
-    void flushPendingEdit();
+    void flushPending();
     return;
   }
   if (toDateKey() !== state.todayKey) render();

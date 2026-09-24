@@ -11,6 +11,8 @@
  * - **下滑关闭**：从顶部拖拽区往下拖，超过阈值或甩得够快就关。
  */
 
+import { flushPending } from '../state.js';
+
 /**
  * @typedef {object} SheetPage
  * @property {string} title 显示在 header 中间
@@ -142,6 +144,7 @@ export function push(name, params = {}) {
  */
 export function pop() {
   if (stack.length === 0) return;
+  flushLeavingPage();
   stack.pop();
   if (stack.length === 0) {
     hidePanel();
@@ -155,6 +158,7 @@ export function pop() {
  */
 export function closeAll() {
   if (stack.length === 0 || closing) return;
+  flushLeavingPage();
   const layers = stack.length;
   stack.length = 0;
   hidePanel();
@@ -163,6 +167,17 @@ export function closeAll() {
   // 不需要「忽略这次 popstate」——落回基础记录后 history.state 里没有 pipSheet，
   // syncToDepth 会看到目标深度是 0，而此时栈已经是空的，是空操作。
   history.go(-layers);
+}
+
+/**
+ * 页面要离开之前，先让它把没落盘的东西补写一次（TECH 3.4）。
+ *
+ * 挂在退层和关弹窗这两条路径上：它们不一定让输入框失焦——Android 返回键就没有任何
+ * 指针事件，Escape 也不会。保存动作是同步读走输入框里的值再异步落盘的，所以这里
+ * 不用等它完成，紧接着把页面换掉也不会丢。
+ */
+function flushLeavingPage() {
+  void flushPending();
 }
 
 // ─────────────────────────────────────────────────────────

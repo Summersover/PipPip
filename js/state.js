@@ -7,6 +7,7 @@
 
 import { toDateKey } from './dates.js';
 import {
+  NOTE_MAX,
   SCHEMA_VERSION,
   createPip,
   createTemplate,
@@ -84,8 +85,9 @@ export function refreshToday() {
 
 /**
  * @typedef {object} AppHost
- * @property {(changed: { dateKey?: string, pipId?: string, calendar?: boolean }) => Promise<void>} write
- *   数据改了：落盘 + 重绘受影响的视图。`calendar` 表示整片重绘日历（模板变更用）。
+ * @property {(changed: { dateKey?: string, pipId?: string, removedPipId?: string, calendar?: boolean }) => Promise<void>} write
+ *   数据改了：落盘 + 重绘受影响的视图。`calendar` 表示整片重绘日历（模板变更用），
+ *   `removedPipId` 表示这个点要淡出后再重画那一格。
  * @property {(name: string, params?: Record<string, unknown>) => void} intent
  *   跳转意图：开某个 sheet 页面，或退一层、关掉。
  */
@@ -122,6 +124,45 @@ export function intent(name, params = {}) {
 }
 
 // ─────────────────────────────────────────────────────────
+// 未落盘的编辑
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 当前 sheet 页面里还没落盘的编辑，由页面渲染时登记。
+ *
+ * 文本输入按 PRD 7.4 是**失焦时保存，不逐键保存**（TECH 3.4 / 12），而失焦不是
+ * 唯一离开方式：Android 返回键、下滑关弹窗都不会让输入框失焦。所以页面渲染时把
+ * 自己的保存动作登记在这里，由 app.js 在页面被藏起来时、由 sheet.js 在页面要离开
+ * 时各补写一次。
+ *
+ * 只可能有一份：sheet 同时只显示一个页面。
+ *
+ * @type {(() => Promise<unknown>) | null}
+ */
+let pendingFlush = null;
+
+/**
+ * 登记（或清空）当前页面的补写动作。
+ *
+ * @param {(() => Promise<unknown>) | null} fn
+ */
+export function setPendingFlush(fn) {
+  pendingFlush = fn;
+}
+
+/**
+ * 补写一次还没落盘的编辑。
+ *
+ * 不 await 也不抛：调用它的地方是「页面正在离开」这种收尾路径，失败了不该拦着
+ * 关弹窗。写入失败本身会由 `app.write` 里的横幅报出来。
+ *
+ * @returns {Promise<void>}
+ */
+export async function flushPending() {
+  await pendingFlush?.();
+}
+
+// ─────────────────────────────────────────────────────────
 // 写操作
 // ─────────────────────────────────────────────────────────
 
@@ -147,6 +188,57 @@ export async function addPip(templateId, dateKey, note = '') {
 
   await app.write({ dateKey, pipId: pip.id });
   return true;
+}
+
+/**
+ * 改一条记录的备注。
+ *
+ * 和 `updateTemplate` 一样，**只有真的变了才写**：失焦时值没动是常态。
+ *
+ * 备注不进任何派生索引（`byDate` 只看 `date`，组内只看 `at`），而且索引里存的就是
+ * pip 对象本身，所以改完不用 `reindex()`。
+ *
+ * @param {string} pipId
+ * @param {string} note
+ * @returns {Promise<boolean>} 是否真的落盘了
+ */
+export async function updatePipNote(pipId, note) {
+  if (state.readOnly) return false;
+
+  const pip = state.data.pips.find((p) => p.id === pipId);
+  if (!pip) return false;
+
+  const next = String(note).slice(0, NOTE_MAX);
+  if (next === pip.note) return false;
+
+  pip.note = next;
+  // updated_at 是合并时判断谁更新的依据（TECH 9.3），改了就得动
+  pip.updated_at = Date.now();
+
+  await app.write({});
+  return true;
+}
+
+/**
+ * 删一条记录。
+ *
+ * **不二次确认**：删掉一条随时可以重新打一次，是低成本可逆操作——整个产品里只有
+ * 删除模板需要确认（PRD 7.4）。
+ *
+ * @param {string} pipId
+ * @returns {Promise<string | null>} 被删那条的日期，供调用方重绘那一格
+ */
+export async function removePip(pipId) {
+  if (state.readOnly) return null;
+
+  const pos = state.data.pips.findIndex((p) => p.id === pipId);
+  if (pos === -1) return null;
+
+  const [removed] = state.data.pips.splice(pos, 1);
+  reindex();
+
+  await app.write({ dateKey: removed.date, removedPipId: removed.id });
+  return removed.date;
 }
 
 /**
