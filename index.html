@@ -81,10 +81,17 @@
         </span>
         <span>Pip</span>
       </button>
+      <!-- 圈 + 6 根径向短线（两根水平），**线全在圈外**，里端留 1.2 的缝。
+           线往里伸过圈边就立刻读成齿轮／辐条，所以里端停在圈外（PRD 9.5）。
+           原来那个是六边形套圆的「螺母」。
+           坐标：r=5.4，缝 1.2 → 线内端距圆心 6.6，线长 2.0 → 外端 8.6。水平两根在
+           x = 12±6.6 → 12±8.6；斜四根在 ±60°/±120°（sin60°≈0.866）。
+           ★ 第一版这里手算错过一个坐标，左边那根戳进了圆里、右边那根整个丢了——
+           六根径向线这种「一圈重复结构」的坐标要用脚本生成粘贴进来，别手算。 -->
       <button class="toolbar-btn" id="toolbar-settings" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21.2 12L16.6 20H7.4L2.8 12L7.4 4H16.6Z"/>
-          <circle cx="12" cy="12" r="3.4"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5.4"/>
+          <path d="M18.60 12.00L20.60 12.00M15.30 6.28L16.30 4.55M8.70 6.28L7.70 4.55M5.40 12.00L3.40 12.00M8.70 17.72L7.70 19.45M15.30 17.72L16.30 19.45"/>
         </svg>
         <span>设置</span>
       </button>
