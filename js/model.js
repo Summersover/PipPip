@@ -162,23 +162,13 @@ export function createPip(templateId, dateKey, note = '') {
 }
 
 /**
- * 启用中的模板，按 `sort_order` 排。
+ * 模板列表的展示顺序：启用中在前，已停用在后，组内按 `sort_order`（PRD 7.2 / 7.5）。
  *
- * 打卡弹窗只列这些，已停用的不出现（PRD 7.2）——但停用只是不再可选，历史记录和
- * 日历上的点全部保留（PRD 7.5）。
+ * 打卡弹窗第一步和统计页都用它。停用的模板在这两处都要照常出现——打卡页里它们是唯一
+ * 的「恢复使用」入口，统计页里只要有记录就得算（记录就是记录）。
  *
  * @param {Template[]} templates
  * @returns {Template[]} 新数组，不改动传入的那个
- */
-export function activeTemplates(templates) {
-  return templates.filter((t) => !t.archived).sort((a, b) => a.sort_order - b.sort_order);
-}
-
-/**
- * 模板列表的展示顺序：启用中在前，已停用在后，组内按 `sort_order`（PRD 7.5）。
- *
- * @param {Template[]} templates
- * @returns {Template[]} 新数组
  */
 export function orderedTemplates(templates) {
   return [...templates].sort(

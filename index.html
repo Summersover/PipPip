@@ -58,14 +58,18 @@
     </div>
 
     <nav class="toolbar" aria-label="主导航">
-      <button class="toolbar-btn" id="toolbar-templates" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-          <rect x="3.5" y="3.5" width="7" height="7" rx="2"/>
-          <rect x="13.5" y="3.5" width="7" height="7" rx="2"/>
-          <rect x="3.5" y="13.5" width="7" height="7" rx="2"/>
-          <rect x="13.5" y="13.5" width="7" height="7" rx="2"/>
+      <!-- 三根细长的**实心**柱子，中间那根最高，底边齐平。这一页没有图表，图标只是
+           「统计」的通用记号（PRD 9.5）。
+           实心而不是描边空心：25px 下描边柱的空心会被抗锯齿糊掉（实测外宽 3.75px 里只剩
+           1.93px 空心），看着就是三根粗条；实心细矩形（宽 2.4）在真实尺寸下才真是
+           「细长矩形」的样子。 -->
+      <button class="toolbar-btn" id="toolbar-stats" type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+          <rect x="4.6" y="11" width="2.4" height="8" rx="1"/>
+          <rect x="10.8" y="5" width="2.4" height="14" rx="1"/>
+          <rect x="17" y="14" width="2.4" height="5" rx="1"/>
         </svg>
-        <span>模板</span>
+        <span>统计</span>
       </button>
       <!-- 可见文字是产品名 Pip，但读屏需要知道这一按是干什么的（PRD 12）。
            aria-label 里带上可见文字，不违背「可访问名要包含可见标签」。 -->
@@ -106,7 +110,7 @@
 <!-- 弹窗。居中的悬浮卡片，只有一个容器，内部是页面栈，不堆叠多层（TECH 7.1） -->
 <div class="scrim" id="scrim" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1" hidden>
-  <!-- 顶部那条横条现在只是装饰：卡片居中、高度写死，它不承担任何手势（PRD 9.5） -->
+  <!-- 顶部那条横条现在只是装饰：卡片居中、高度随内容（有上下限），它不承担任何手势（PRD 9.5） -->
   <div class="sheet-grip">
     <span class="sheet-handle"></span>
   </div>

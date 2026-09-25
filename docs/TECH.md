@@ -107,7 +107,8 @@
 │       ├── calendar.js         月历网格
 │       ├── day.js              某日列表 + 打卡详情
 │       ├── pip-form.js         打卡流程（选模板 → 写备注 → 确定）
-│       ├── templates.js        模板管理
+│       ├── templates.js        模板表单（新建 / 编辑 / 停用 / 删除）
+│       ├── stats.js            统计（区间 + 各模板次数）
 │       └── settings.js         设置页
 ├── icons/
 │   ├── icon-192.png
@@ -601,13 +602,15 @@ calendar.renderCell(dateKey);
 ```
 day-list        某日记录列表
 pip-detail      打卡详情
-pip-create      打卡流程（带目标日期参数）
-template-list   模板列表
-template-edit   模板新建/编辑
+pip-create      打卡流程（带目标日期参数；第一步的列表也是模板列表）
+template-edit   模板新建/编辑（从 pip-create 那一行的 `›` 进）
+stats           统计（区间 + 各模板次数）
 ```
 
-从底部工具栏进入：push `template-list` 或 `pip-create`（目标日期 = 今天）。
+从底部工具栏进入：push `stats` 或 `pip-create`（目标日期 = 今天）。
 从日历点某天：push `day-list`，它内部可以再 push `pip-detail` 或 `pip-create`（目标日期 = 那一天）。
+
+**模板没有自己的页面入口**：列表就是 `pip-create` 的第一步，`›` 进 `template-edit`。所以这一页是 `pip-create → template-edit` 的两层栈，退回来还落在打卡流程里（PRD 7.2 / 7.5）。
 
 **为什么用一个容器而不是多个堆叠的 sheet**：多个 sheet 叠加要处理 z-index、遮罩层数、滚动穿透，而且视觉上会层层叠高。单容器 + 页面栈没有这些问题，视觉上也永远是「一层弹窗」。
 

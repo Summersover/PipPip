@@ -13,7 +13,6 @@ import {
   PRESET_COLORS,
   SCHEMA_VERSION,
   TITLE_MAX,
-  activeTemplates,
   buildExport,
   createPip,
   createTemplate,
@@ -174,19 +173,10 @@ test('同一个模板同一天可以记多条，各有各的 id', () => {
   assert.notEqual(a.id, b.id);
 });
 
-test('activeTemplates 只留启用中的，并按 sort_order 排', () => {
-  const list = activeTemplates([
-    template({ id: 't_c', sort_order: 2 }),
-    template({ id: 't_a', sort_order: 0 }),
-    template({ id: 't_arch', sort_order: 1, archived: true }),
-  ]);
-  assert.deepEqual(list.map((t) => t.id), ['t_a', 't_c'], '停用的不出现，顺序按 sort_order');
-});
-
-test('activeTemplates 不改动传进来的数组', () => {
-  // 先 filter 出新数组再 sort：就地排会改到 state.data.templates 的顺序
+test('orderedTemplates 不改动传进来的数组', () => {
+  // 先复制再排：就地排会改到 state.data.templates 的顺序
   const source = [template({ id: 't_b', sort_order: 1 }), template({ id: 't_a', sort_order: 0 })];
-  activeTemplates(source);
+  orderedTemplates(source);
   assert.deepEqual(source.map((t) => t.id), ['t_b', 't_a']);
 });
 

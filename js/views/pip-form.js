@@ -14,7 +14,7 @@
  */
 
 import { formatDayLabel, partsOf, toDateKey } from '../dates.js';
-import { COLOR_CLASS, NOTE_MAX, activeTemplates } from '../model.js';
+import { COLOR_CLASS, NOTE_MAX, orderedTemplates } from '../model.js';
 import { addPip, intent, state } from '../state.js';
 
 /**
@@ -58,23 +58,32 @@ function buildIcon(template, iconCls, dotCls) {
 /**
  * 选择列表里的一行：emoji + 标题 + 该模板颜色的圆点 + `›`。
  *
- * 和模板列表用同一套行样式（PRD 9.5）——为什么不做成方块：行占满整宽，20 字的标题也
- * 看得全，而方块一格只有 90px 宽、中文字放不下四个。模板的名字是这里最要紧的信息。
+ * **一行两个动作**（PRD 7.2）：点行主体进打卡备注页，点行尾的 `›` 进这个模板的编辑页。
+ * 所以这一行是 `div` 里放两个 `button`——按钮不能嵌套（HTML 不允许，点击语义也会打架）。
+ *
+ * 已停用的模板排在最后、整行退到次级色，点哪儿都进编辑页：它不能打卡，只剩「恢复使用 /
+ * 删除」两件事。工具栏那格改成「统计」之后，**这一页是模板唯一的入口**，所以停用的模板
+ * 也必须还看得见、进得去，否则就再也恢复不了了。
  *
  * @param {import('../model.js').Template} template
- * @param {() => void} onPick
+ * @param {() => void} onPick 进打卡备注页（已停用时不会走到这儿）
  * @returns {HTMLLIElement}
  */
 function buildRow(template, onPick) {
   const li = document.createElement('li');
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'tpl-row';
-  btn.addEventListener('click', onPick);
+  const row = document.createElement('div');
+  row.className = 'tpl-row';
+  if (template.archived) row.classList.add('is-archived');
 
-  const main = document.createElement('span');
+  const edit = () => intent('edit-template', { templateId: template.id });
+
+  const main = document.createElement('button');
+  main.type = 'button';
   main.className = 'tpl-row-main';
+  // 读屏听到的是「喝水，记一笔」而不是光一个模板名（PRD 12）
+  main.setAttribute('aria-label', template.archived ? `${template.title}，已停用` : `${template.title}，记一笔`);
+  main.addEventListener('click', template.archived ? edit : onPick);
   main.append(buildIcon(template, 'tpl-row-icon', 'tpl-row-dot'));
 
   const title = document.createElement('span');
@@ -82,16 +91,25 @@ function buildRow(template, onPick) {
   title.textContent = template.title;
   main.append(title);
 
+  if (template.archived) {
+    const tag = document.createElement('span');
+    tag.className = 'tpl-tag';
+    tag.textContent = '已停用';
+    main.append(tag);
+  }
+
   const color = document.createElement('span');
   color.className = `tpl-row-color pip ${COLOR_CLASS[template.color] ?? 'pip-unknown'}`;
 
-  const chevron = document.createElement('span');
+  const chevron = document.createElement('button');
+  chevron.type = 'button';
   chevron.className = 'tpl-chevron';
   chevron.textContent = '›';
-  chevron.setAttribute('aria-hidden', 'true');
+  chevron.setAttribute('aria-label', `编辑 ${template.title}`);
+  chevron.addEventListener('click', edit);
 
-  btn.append(main, color, chevron);
-  li.append(btn);
+  row.append(main, color, chevron);
+  li.append(row);
   return li;
 }
 
@@ -173,12 +191,12 @@ function buildConfirmButton(readNote, onSubmit) {
 }
 
 /**
- * 一个启用中的模板都没有时的空状态（PRD 7.2 / 11）。
+ * 一个模板都没有时的空状态（PRD 7.2 / 11）。
  *
- * 「新建模板」要开模板弹窗，那是第 6 步的页面，所以走意图而不是直接调 sheet。
- * 页面还没注册时由 app.js 挡住并 warn，不会抛错。
+ * 只有标题和提示，「新建模板」在底栏——空状态和列表两种情况下底栏是同一颗按钮，
+ * 不用在正文里再放一颗。
  *
- * @returns {{ el: HTMLDivElement, button: HTMLButtonElement }} 按钮给底栏，正文给卡片中间
+ * @returns {HTMLDivElement}
  */
 function buildEmptyState() {
   const wrap = document.createElement('div');
@@ -192,14 +210,8 @@ function buildEmptyState() {
   hint.className = 'pip-empty-hint';
   hint.textContent = '新建一个，比如「跑步」';
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-primary';
-  btn.textContent = '＋ 新建模板';
-  btn.addEventListener('click', () => intent('new-template'));
-
   wrap.append(title, hint);
-  return { el: wrap, button: btn };
+  return wrap;
 }
 
 /**
@@ -212,16 +224,27 @@ export function renderPipCreate(params) {
   const dateKey = /** @type {import('../dates.js').DateKey} */ (
     typeof params.dateKey === 'string' ? params.dateKey : toDateKey()
   );
-  const templates = activeTemplates(state.data.templates);
+
+  // 启用中的在前，已停用的在后（PRD 7.2 / 7.5）
+  const all = orderedTemplates(state.data.templates);
+  const templates = all.filter((template) => !template.archived);
+  const archived = all.filter((template) => template.archived);
 
   const wrap = document.createElement('div');
   // 底栏只建一次，然后交给 sheet.js 搬进卡片底栏；换步骤时只换它里面的内容，引用一直有效
   const footer = document.createElement('div');
 
-  if (templates.length === 0) {
-    const empty = buildEmptyState();
-    wrap.append(empty.el);
-    footer.append(empty.button);
+  // 第一步的底栏动作：新建模板。它一直住在这儿，列表和空状态都是同一颗按钮
+  // （PRD 7.2）。走强调色而不是次级色：这一页是模板唯一的入口，新建是它的主要动作之一。
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'btn-primary';
+  add.textContent = '＋ 新建模板';
+  add.addEventListener('click', () => intent('new-template'));
+  footer.append(add);
+
+  if (all.length === 0) {
+    wrap.append(buildEmptyState());
     return { title: '选择模板', body: wrap, footer };
   }
 
@@ -250,11 +273,11 @@ export function renderPipCreate(params) {
       );
       step.append(noteStep.el);
     } else {
-      // 第一步没有主动作——模板行本身就是那一步的动作
-      footer.replaceChildren();
+      // 第一步没有主操作——模板行本身就是那一步的动作，底栏只放新建
+      footer.replaceChildren(add);
       const list = document.createElement('ul');
       list.className = 'tpl-list';
-      for (const template of templates) {
+      for (const template of all) {
         list.append(buildRow(template, () => showStep(template, 'forward')));
       }
       step.append(list);

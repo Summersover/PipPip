@@ -1,9 +1,8 @@
 /**
- * 模板管理（PRD 7.5）。
+ * 模板表单（PRD 7.5）。
  *
- * 两个 sheet 页面：
- * - `template-list` 列表，启用中在前、已停用在后（灰显 + 「已停用」标记）
- * - `template-edit` 新建或编辑，同一个表单
+ * 只有一个 sheet 页面 `template-edit`：新建或编辑，同一个表单。**没有单独的模板列表页
+ * 了**——列表就是打卡弹窗的第一步（`pip-form.js`），那一行右边那个 `›` 进这里。
  *
  * 写入走 state 的 addTemplate / updateTemplate / removeTemplate，跳转走 state 的
  * intent——视图既不 import store.js 也不 import sheet.js（TECH 2）。
@@ -16,7 +15,7 @@
  *   离散动作，点了立刻写。
  */
 
-import { COLOR_CLASS, COLOR_NAME, PRESET_COLORS, TITLE_MAX, orderedTemplates, pickColor } from '../model.js';
+import { COLOR_CLASS, COLOR_NAME, PRESET_COLORS, TITLE_MAX, pickColor } from '../model.js';
 import {
   addTemplate,
   index,
@@ -35,28 +34,6 @@ import {
  * （带 ZWJ 的、带变体选择符的），又放不下一段文字。
  */
 const ICON_MAX = 16;
-
-/**
- * 模板的图标：设了 emoji 就用 emoji，没设就用一个该模板颜色的圆点（PRD 7.5）。
- *
- * 和 pip-form.js 里那份形状相同，但 `views/*` 之间不互相 import（TECH 2），
- * 所以各留一份。
- *
- * @param {import('../model.js').Template} template
- * @param {string} iconCls 有 emoji 时用的类名
- * @param {string} dotCls 没 emoji 时用的类名，尺寸由它决定
- * @returns {HTMLSpanElement}
- */
-function buildIcon(template, iconCls, dotCls) {
-  const el = document.createElement('span');
-  if (template.icon) {
-    el.className = iconCls;
-    el.textContent = template.icon;
-  } else {
-    el.className = `${dotCls} pip ${COLOR_CLASS[template.color] ?? 'pip-unknown'}`;
-  }
-  return el;
-}
 
 /**
  * 一个带标签的输入框。用 `<label>` 包住 `<input>` 做隐式关联，不需要生成 id。
@@ -207,87 +184,6 @@ function buildConfirm(template, count, onCancel, onDelete) {
   row.append(cancel, remove);
   box.append(title, body, row);
   return box;
-}
-
-/**
- * 列表里的一行：emoji + 标题（+「已停用」）+ 该模板颜色的圆点 + `›`。
- *
- * 和打卡弹窗选模板共用同一套行样式（PRD 9.5）。行占满整宽，20 字的标题也看得全——
- * 这是这一页最要紧的信息；方块一格只有 90px 宽，四个中文字就截断了。
- *
- * @param {import('../model.js').Template} template
- * @returns {HTMLLIElement}
- */
-function buildRow(template) {
-  const li = document.createElement('li');
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'tpl-row';
-  if (template.archived) btn.classList.add('is-archived');
-  btn.addEventListener('click', () => intent('edit-template', { templateId: template.id }));
-
-  const main = document.createElement('span');
-  main.className = 'tpl-row-main';
-  main.append(buildIcon(template, 'tpl-row-icon', 'tpl-row-dot'));
-
-  const title = document.createElement('span');
-  title.className = 'tpl-row-title';
-  title.textContent = template.title;
-  main.append(title);
-
-  if (template.archived) {
-    const tag = document.createElement('span');
-    tag.className = 'tpl-tag';
-    tag.textContent = '已停用';
-    main.append(tag);
-  }
-
-  // 色点是这个模板在日历上的颜色，emoji 表达不了，所以两个都要（PRD 7.5）
-  const color = document.createElement('span');
-  color.className = `tpl-row-color pip ${COLOR_CLASS[template.color] ?? 'pip-unknown'}`;
-
-  const chevron = document.createElement('span');
-  chevron.className = 'tpl-chevron';
-  chevron.textContent = '›';
-  chevron.setAttribute('aria-hidden', 'true');
-
-  btn.append(main, color, chevron);
-  li.append(btn);
-  return li;
-}
-
-/**
- * 模板列表。
- *
- * @returns {import('./sheet.js').SheetPage}
- */
-export function renderTemplateList() {
-  // 列表成为栈顶就意味着编辑表单已经离开了，那个保存动作不必再留着
-  setPendingFlush(null);
-
-  const wrap = document.createElement('div');
-
-  // 列表，和打卡弹窗那边共用一套行样式（PRD 9.5）
-  const list = document.createElement('ul');
-  list.className = 'tpl-list';
-
-  for (const template of orderedTemplates(state.data.templates)) {
-    list.append(buildRow(template));
-  }
-
-  wrap.append(list);
-
-  // 新建固定在卡片底边，不跟着网格滚走——模板一多，原来那个「列表末尾一行」就要滑到
-  // 底才够得着（PRD 9.5）。走次级色而不是强调色：新建是低频动作，不该像「＋ 确定」
-  // 那样抢（PRD 7.5）。
-  const add = document.createElement('button');
-  add.type = 'button';
-  add.className = 'btn-primary is-quiet';
-  add.textContent = '＋ 新建模板';
-  add.addEventListener('click', () => intent('new-template'));
-
-  return { title: '模板', body: wrap, footer: add };
 }
 
 /**

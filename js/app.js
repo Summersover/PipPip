@@ -12,7 +12,8 @@ import { renderDayList, renderPipDetail } from './views/day.js';
 import { renderPipCreate } from './views/pip-form.js';
 import { renderSettings } from './views/settings.js';
 import { closeAll, mountSheet, push, registerPage } from './views/sheet.js';
-import { renderTemplateEdit, renderTemplateList } from './views/templates.js';
+import { renderStats } from './views/stats.js';
+import { renderTemplateEdit } from './views/templates.js';
 
 const titleEl = document.getElementById('cal-title');
 const gridEl = /** @type {HTMLTableElement | null} */ (document.getElementById('cal-grid'));
@@ -310,8 +311,8 @@ async function boot() {
   registerPage('day-list', renderDayList);
   registerPage('pip-detail', renderPipDetail);
   registerPage('pip-create', renderPipCreate);
-  registerPage('template-list', renderTemplateList);
   registerPage('template-edit', renderTemplateEdit);
+  registerPage('stats', renderStats);
 
   // reload 会把历史记录的 state 一起留下，而应用是从「日历 + 空弹窗栈」起来的，所以
   // 任何残留标记按定义都过期了。不清的话栈深和 history 对不上，用户要多按一次返回键。
@@ -411,8 +412,8 @@ document.getElementById('toolbar-pip')?.addEventListener('click', () => {
   push('pip-create', { dateKey: toDateKey() });
 });
 
-document.getElementById('toolbar-templates')?.addEventListener('click', () => {
-  push('template-list', {});
+document.getElementById('toolbar-stats')?.addEventListener('click', () => {
+  push('stats', {});
 });
 
 document.getElementById('toolbar-settings')?.addEventListener('click', () => {

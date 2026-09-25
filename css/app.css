@@ -1160,7 +1160,9 @@ button:disabled {
 
 /* ── 模板列表行 ───────────────────────────────────────────── */
 
-/* **打卡弹窗选模板和模板列表共用这一套**（PRD 7.5 / 9.5）。
+/* 打卡弹窗第一步的模板行（PRD 7.2 / 9.5）。**一行两个动作**：
+   行主体 → 进打卡备注页；右侧的 `›` → 进这个模板的编辑页。所以这一行不是按钮，
+   是「div 里放两个按钮」——按钮不能嵌套（HTML 不允许，点击语义也会打架）。
    为什么是行不是方块：行的标题占满整行宽度，20 字的标题也看得全；方块一格只有 90px
    宽，中文字只能放 4 个，超过就截断。模板的名字是这里最要紧的信息。 */
 
@@ -1182,17 +1184,22 @@ button:disabled {
   text-align: left;
 }
 
-.tpl-row:active {
-  background: var(--fill);
-}
-
-/* 左侧一组（图标 + 标题）占满剩余宽度，好让标题能长、能截断 */
+/* 左侧一组（图标 + 标题）占满剩余宽度，好让标题能长、能截断。
+   上下各 -12px 的负 margin 配合等量 padding：把可点区域从内容盒撑到整行（含行的
+   上下内边距），这样按下去那层 --fill 还是铺满一整行，和拆成两个按钮之前一样。 */
 .tpl-row-main {
   flex: 1;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
+  margin: calc(-1 * var(--sp-3)) 0;
+  padding: var(--sp-3) 0;
+}
+
+.tpl-row-main:active,
+.tpl-chevron:active {
+  background: var(--fill);
 }
 
 .tpl-row-icon {
@@ -1213,18 +1220,27 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* 已停用：整行退到次级色，标题后面挂「已停用」（PRD 7.5 / 11） */
+/* 已停用：整行退到次级色，标题后面挂「已停用」（PRD 7.2 / 11）。
+   已停用的行点哪儿都进编辑页——它不能打卡，只剩「恢复使用 / 删除」两件事。 */
 .tpl-row.is-archived {
   color: var(--text-secondary);
 }
 
 /* 右侧那个色点是这个模板在日历上的颜色，emoji 表达不了，所以两个都显示 */
-.tpl-row-color,
-.tpl-chevron {
+.tpl-row-color {
   flex: none;
 }
 
+/* 行尾那个 `›`：**它自己是按钮**，按它进编辑页（PRD 7.2）。
+   44×44 是触摸目标下限，负 margin 让它撑到整行高度、并往卡片内边距里吃一点，
+   这样图标位置看着没变、手指却好按。 */
 .tpl-chevron {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
   color: var(--text-tertiary);
 }
 
@@ -1399,6 +1415,83 @@ button:disabled {
 .btn-secondary:active,
 .btn-danger:active {
   background: var(--fill);
+}
+
+/* ── 统计页（stats） ──────────────────────────────────────── */
+
+/* 预设区间：一行四个。选中的那个用 --fill 垫底——和列表行按下去是同一层色，
+   不为了「选中」再引入第二种长相。 */
+.seg {
+  display: flex;
+  gap: 4px;
+}
+
+.seg-item {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: var(--r-capsule);
+  font-size: 15px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.seg-item[aria-pressed='true'] {
+  background: var(--fill);
+  color: var(--text);
+}
+
+/* 当前区间那一行，整行可点：展开／收起自定义的起止日期字段。 */
+.range-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  margin-top: var(--sp-3);
+  font-size: 15px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+/* 复用行尾 `›` 的样子，但这里它只是个指示，不要那个 44×44 的触摸盒和负 margin */
+.range-line .tpl-chevron {
+  width: auto;
+  height: auto;
+  margin: 0 0 0 auto;
+}
+
+/* 起止两个日期字段。**必须上下两行**：原生日期输入自带最小宽度（日期文本 + 日历图标），
+   两个并排要 340px 上下，超过卡片的 294px 可用宽度，硬压也压不下去。 */
+.range-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+/* 这条不能省：上面那条 `display: flex` 是作者样式，会盖掉浏览器默认的
+   `[hidden] { display: none }`，于是 `hidden` 只改了属性、字段照旧显示——卡片被顶到
+   高度上限，明明只有几行却要滚。（和 .view[hidden] / .icon-btn 是同一个坑。） */
+.range-fields[hidden] {
+  display: none;
+}
+
+/* 结果区。一行一句「你总共跑步了 12 次」，行距给足，否则连起来像一段话。 */
+.stat-period {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.stat-line {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.9;
+}
+
+/* 次数单独退到次级色：这句话里主角是「做了什么」，次数是补充（PRD 7.7） */
+.stat-n {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── 响应式 ───────────────────────────────────────────────── */
