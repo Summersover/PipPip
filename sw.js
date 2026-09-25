@@ -17,7 +17,7 @@
  */
 
 // >>> generated: assets
-const CACHE = 'pip-0e571df6';
+const CACHE = 'pip-4f5c81ee';
 
 // 由 tools/stamp-sw.js 生成。清单变化时 CACHE 会自动变，不需要手改。
 const ASSETS = [

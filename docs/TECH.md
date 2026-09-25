@@ -618,7 +618,7 @@ template-edit   模板新建/编辑
 - 页面切换用 180ms `ease-out` 的横向位移 + 淡入
 - 关闭时清空栈
 
-**没有下滑关闭**（原来有，改成居中卡片之后去掉了）：卡片居中、高度写死，往下拖既关不掉也没有可展开的内容。顶部那条 38×5px 的横条因此只是装饰。
+**没有下滑关闭**（原来有，改成居中卡片之后去掉了）：卡片居中、高度随内容（下限 40vh / 上限 min(68vh, 72dvh)），往下拖既关不掉也没有可展开的内容。顶部那条 38×5px 的横条因此只是装饰。
 
 ### 7.2 Android 返回键
 
@@ -1150,6 +1150,8 @@ npm run check   # 类型检查 + 5 个时区跑测试 + 校验 sw.js 生成区�
 `connect-src 'none'` 是一道硬保证：即使将来误加了网络代码，也会被浏览器拦下。
 
 注意这条 CSP 与 8.2 的主题引导脚本**不冲突**——因为主题脚本是外部文件（`./js/theme-boot.js`）而不是内联脚本，所以不需要 `'unsafe-inline'`，也不需要算 hash。这是把它单独拆成一个文件的主要原因。
+
+`style-src 'self'` 有个调试期的副作用值得记一笔：浏览器会拒掉内联的 `<style>` 和 `style=` 属性（插进去的元素 `sheet` 是 `null`，样式静默不生效），所以在预览里临时试间距/颜色**不能用注入 `<style>` 的办法**，要走 CSSOM：`document.styleSheets[0].insertRule('.x { padding-top: 12px }', document.styleSheets[0].cssRules.length)`，试完 `deleteRule` 或直接刷新。
 
 - **文本安全**：见 6.4，用户输入一律 `textContent`
 - **供应链**：**运行时零依赖**。唯一一个 devDependency（typescript）只在本地和提交前跑，不进产物、不参与构建，所以没有运行时供应链风险
