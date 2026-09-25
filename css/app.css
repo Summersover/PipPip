@@ -1231,6 +1231,68 @@ button:disabled {
   flex: none;
 }
 
+/* 行首的三横线拖动柄：启用中的模板才有。三道细线用伪元素画一线、上下两个
+   box-shadow 复制——一个按钮自己画完整套，不再多生节点。线宽和颜色对齐行尾
+   的 `›`（同为 --text-tertiary），它只是个轻量的排序 affordance，不抢行。
+   触摸目标 28×44，靠负 margin 吃进行高（PRD 9.4）。
+   touch-action: none 是拖拽生效的前提：柄上按下后移动不能滚列表。
+   translateZ(0) 把柄各自提升成合成层：层原点吸附到整数设备像素，线又是整数
+   像素画的，所以每一行的柄都渲染得完全一致——行距不是整数（46.95px），不提升
+   的话各行的线落在不同的像素相位上，有的清晰有的发虚，看着粗细不一。 */
+.tpl-drag {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 44px;
+  margin: calc(-1 * var(--sp-3)) 0 calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2));
+  touch-action: none;
+  color: var(--text-tertiary);
+  transform: translateZ(0);
+}
+
+/* 线不用 place-items 居中（44−1 会落到 21.5 的半像素上），显式摆到整数像素：
+   三道线在 18 / 22 / 26，总高 9px、宽 12px。 */
+.tpl-drag::before {
+  content: '';
+  width: 12px;
+  height: 1px;
+  align-self: start;
+  margin-top: 18px;
+  background: currentColor;
+  box-shadow:
+    0 4px 0 currentColor,
+    0 8px 0 currentColor;
+}
+
+.tpl-drag:active {
+  background: var(--fill);
+}
+
+/* 拖动排序。拖动行 transform 跟手浮起（表面色垫底 + 软投影），其余行被越过时
+   滑动让位。transform 由 JS 写 CSSOM——CSP 只拦 HTML 里的 style 属性，不拦脚本。
+   跟手行不能有 transition（transform 每帧都在变，过渡会让它拖出一段橡皮筋）；
+   让位行才要 150ms 的滑动。 */
+.tpl-list.is-reordering li:not(.is-dragging) {
+  transition: transform 150ms ease-out;
+}
+
+/* 落位的那一帧：让位行的自然位置和位移后的位置正好重合，拖动行一次插进目标槽。
+   全部发生在同一次同步执行里（一次绘制），过渡必须闭嘴——否则「清零位移」会被
+   再演一遍，行会先弹回原位再滑回来。 */
+.tpl-list.is-committing li {
+  transition: none !important;
+}
+
+.tpl-list li.is-dragging {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  will-change: transform;
+}
+
 /* 行尾那个 `›`：**它自己是按钮**，按它进编辑页（PRD 7.2）。
    44×44 是触摸目标下限，负 margin 让它撑到整行高度、并往卡片内边距里吃一点，
    这样图标位置看着没变、手指却好按。 */

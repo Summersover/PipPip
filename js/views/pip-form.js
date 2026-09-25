@@ -15,7 +15,7 @@
 
 import { formatDayLabel, partsOf, toDateKey } from '../dates.js';
 import { COLOR_CLASS, NOTE_MAX, orderedTemplates } from '../model.js';
-import { addPip, intent, state } from '../state.js';
+import { addPip, intent, reorderTemplates, state } from '../state.js';
 
 /**
  * 目标日期的显示文案。
@@ -56,14 +56,14 @@ function buildIcon(template, iconCls, dotCls) {
 }
 
 /**
- * 选择列表里的一行：emoji + 标题 + 该模板颜色的圆点 + `›`。
+ * 一行：〔柄〕emoji/色点 + 标题 + 该模板颜色的圆点 + `›`。
  *
- * **一行两个动作**（PRD 7.2）：点行主体进打卡备注页，点行尾的 `›` 进这个模板的编辑页。
- * 所以这一行是 `div` 里放两个 `button`——按钮不能嵌套（HTML 不允许，点击语义也会打架）。
+ * **一行三个动作**：行首的三横线柄拖动换位（启用中的模板才有），行主体进打卡备注页，
+ * 行尾的 `›` 进这个模板的编辑页。按钮不能嵌套，所以整行是「div 里放三个 button」。
  *
- * 已停用的模板排在最后、整行退到次级色，点哪儿都进编辑页：它不能打卡，只剩「恢复使用 /
- * 删除」两件事。工具栏那格改成「统计」之后，**这一页是模板唯一的入口**，所以停用的模板
- * 也必须还看得见、进得去，否则就再也恢复不了了。
+ * 已停用的模板排在最后、整行退到次级色、**没有柄**：它不能打卡，只剩「恢复使用 /
+ * 删除」两件事，顺序也永远垫底。工具栏那格改成「统计」之后，**这一页是模板唯一的
+ * 入口**，所以停用的模板也必须还看得见、进得去，否则就再也恢复不了了。
  *
  * @param {import('../model.js').Template} template
  * @param {() => void} onPick 进打卡备注页（已停用时不会走到这儿）
@@ -71,10 +71,17 @@ function buildIcon(template, iconCls, dotCls) {
  */
 function buildRow(template, onPick) {
   const li = document.createElement('li');
+  // 拖动结束时按 DOM 顺序收 id 重排，行的身份和归组带在身上
+  li.dataset.id = template.id;
+  li.dataset.archived = String(template.archived);
 
   const row = document.createElement('div');
   row.className = 'tpl-row';
   if (template.archived) row.classList.add('is-archived');
+
+  if (!template.archived) {
+    row.append(buildDragHandle(template, li));
+  }
 
   const edit = () => intent('edit-template', { templateId: template.id });
 
@@ -111,6 +118,206 @@ function buildRow(template, onPick) {
   row.append(main, color, chevron);
   li.append(row);
   return li;
+}
+
+/**
+ * 行首的三横线拖动柄。
+ *
+ * **只有启用中的模板有柄。** 已停用的永远垫底，拖它没有意义；启用中的行拖到停用那组
+ * 的边界时停住（`showStep` 按启用/停用两组渲染，插不进去）。
+ *
+ * 触发走 Pointer Events，**不用 HTML5 drag & drop**（`draggable` 在 iOS Safari 的
+ * 触屏上不生效）。拖拽期间禁止触摸滚动之类的默认行为要靠 CSS（`touch-action: none`），
+ * `addEventListener('touchmove', …, { passive: false })` 不是必须的。
+ *
+ * @param {import('../model.js').Template} template
+ * @param {HTMLLIElement} li 所在的列表行，拖拽时被收起、结束后恢复
+ * @returns {HTMLButtonElement}
+ */
+function buildDragHandle(template, li) {
+  const handle = document.createElement('button');
+  handle.type = 'button';
+  handle.className = 'tpl-drag';
+  handle.setAttribute('aria-label', `调整 ${template.title} 的顺序`);
+  handle.dataset.dragHandle = '';
+
+  handle.addEventListener('pointerdown', (event) => {
+    // 左键当手指用；右键、触控笔的橡皮那些不碰
+    if (!event.isPrimary || event.button !== 0) return;
+    beginDrag(handle, li, event);
+  });
+
+  return handle;
+}
+
+/**
+ * 拖拽期间的活动状态。模块级而不是闭包级：一次只有一个拖拽在进行，
+ * 而 move / up / cancel 挂在 window 上，监听器必须能独立于任何手柄引用收尾。
+ *
+ * `order` 是拖起那一刻的完整行序（含停用行，它们永远垫底）。**拖动中不动 DOM**：
+ * 拖动行用 transform 跟手，让位行用 transform 滑开，DOM 顺序只在松手时提交一次。
+ *
+ * @type {{
+ *   li: HTMLLIElement,
+ *   handle: HTMLButtonElement,
+ *   pointerId: number,
+ *   startY: number,
+ *   height: number,
+ *   order: HTMLLIElement[],
+ *   from: number,
+ *   to: number,
+ *   activeCount: number,
+ * } | null}
+ */
+let drag = null;
+
+/**
+ * 开始一次拖拽：记下起点、行高和当时的行序，把手柄和行标记成拖拽态。
+ *
+ * 行自己的样式交 CSS（`.is-dragging` 浮起，`.is-reordering` 给让位行开过渡）。
+ * `setPointerCapture` 保证触屏上这个手势不被列表滚动截走；但 move / up / cancel
+ * **挂在 window 上**，不挂手柄——松手的落位会把手柄连同行一起 `insertBefore`
+ * 摘下来再插回去，手柄一离文档，浏览器就释放捕获，挂它身上的监听器从此收不到
+ * 事件，落盘就悬了。挂 window 没有问题：事件无论落在哪个元素上都会冒泡上来。
+ *
+ * @param {HTMLButtonElement} handle
+ * @param {HTMLLIElement} li
+ * @param {PointerEvent} event
+ */
+function beginDrag(handle, li, event) {
+  if (drag) return; // 上一场还没收尾（理论上不会：window 监听必收尾），别叠
+  event.preventDefault();
+  const list = li.parentElement;
+  if (!list) return;
+
+  /** @type {HTMLLIElement[]} */
+  const order = [...list.querySelectorAll('li')];
+
+  drag = {
+    li,
+    handle,
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    height: li.getBoundingClientRect().height,
+    order,
+    from: order.indexOf(li),
+    to: order.indexOf(li),
+    activeCount: order.filter((row) => row.dataset.archived !== 'true').length,
+  };
+
+  li.classList.add('is-dragging');
+  list.classList.add('is-reordering');
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {
+    // 个别内核在手柄恰好被重建时会拒；抓不到也有 window 监听兜底
+  }
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
+/**
+ * 拖动中：拖动行 transform 跟手，越过半行就把目标槽换掉、让位行滑开。
+ *
+ * 目标槽 = 起点槽 + 位移除以行高取整（半行为界），钳在启用组里——停用行永远
+ * 垫底。只有目标槽真的变了才碰让位行，平时的移动只是给拖动行改一个 transform。
+ *
+ * @param {PointerEvent} event
+ */
+function onDragMove(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+
+  const { li, startY, height, from, activeCount } = drag;
+  const dy = event.clientY - startY;
+  li.style.transform = `translateY(${dy}px)`;
+
+  const to = Math.min(Math.max(from + Math.round(dy / height), 0), activeCount - 1);
+  if (to === drag.to) return;
+  drag.to = to;
+  shiftSiblings();
+}
+
+/**
+ * 让被越过的行滑开：拖动行从 from 挪到 to，中间的行各让一行。
+ *
+ * transform 不参与布局，每行空出的那一格还留着，所以没有重排；让位的滑动
+ * 是 CSS 过渡（`.is-reordering`），这里只负责把位移写对。
+ */
+function shiftSiblings() {
+  if (!drag) return;
+  const { li, order, from, to, height } = drag;
+  order.forEach((row, k) => {
+    if (row === li) return;
+    const shift =
+      from < to && from < k && k <= to
+        ? -height
+        : to < from && to <= k && k < from
+          ? height
+          : 0;
+    row.style.transform = shift ? `translateY(${shift}px)` : '';
+  });
+}
+
+/**
+ * 拖完（或被来电、弹窗打断）：落位、落盘、收掉浮起。
+ *
+ * 落位是**同一次同步执行**里的一串（只绘制一次）：让位行清位移 + 拖动行插进
+ * 目标槽——此刻两者的自然位置和位移后的位置正好重合，画面纹丝不动；期间过渡
+ * 被 `.is-committing` 关掉，否则「清零位移」会被再演一遍，行会弹回原位再滑回来。
+ * 手指停在两槽之间时的残余位移用 Web Animations 滑进槽位，滑完才收掉投影。
+ *
+ * 先摘监听再做事——后面任何一步出异常都不能把 window 监听留在那里，否则下一次
+ * 点哪儿都像在拖拽。落盘失败会有横幅，不在这里重试。
+ *
+ * @param {PointerEvent} event
+ */
+function onDragEnd(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const { li, handle, pointerId, order, from, to } = drag;
+  drag = null;
+
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  // pointerup 之后浏览器会隐式释放捕获；已不在手上就别去要，有的内核会抛
+  if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+
+  const list = li.parentElement;
+  if (!list) {
+    li.classList.remove('is-dragging');
+    return;
+  }
+
+  const visualTop = li.getBoundingClientRect().top;
+
+  list.classList.add('is-committing');
+  for (const row of order) {
+    if (row !== li) row.style.transform = '';
+  }
+  if (to !== from) {
+    // 插到目标槽：往下挪就插在「目标槽的下一行」前面，往上挪就插在目标槽前面
+    const reference = order[to > from ? to + 1 : to] ?? null;
+    list.insertBefore(li, reference);
+  }
+  li.style.transform = '';
+  list.classList.remove('is-committing');
+
+  const residual = visualTop - li.getBoundingClientRect().top;
+  if (Math.abs(residual) > 0.5) {
+    li.animate(
+      [{ transform: `translateY(${residual}px)` }, { transform: 'none' }],
+      { duration: 150, easing: 'ease-out' },
+    );
+  }
+  // 投影跟着残余位移一起收，别在行还悬着的时候突然抽掉
+  window.setTimeout(() => li.classList.remove('is-dragging'), 150);
+  list.classList.remove('is-reordering');
+
+  const orderedIds = /** @type {HTMLLIElement[]} */ ([...list.querySelectorAll('li[data-id]')]).map(
+    (child) => /** @type {string} */ (child.dataset.id),
+  );
+  void reorderTemplates(orderedIds);
 }
 
 /**

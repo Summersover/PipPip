@@ -21,6 +21,7 @@ import {
   mountHost,
   removePip,
   removeTemplate,
+  reorderTemplates,
   setPendingFlush,
   state,
   updatePipNote,
@@ -198,6 +199,66 @@ test('停用不删记录', async () => {
   await updateTemplate('t_a', { archived: true });
   assert.equal(state.data.templates[0].archived, true);
   assert.equal(state.data.pips.length, 1);
+});
+
+test('reorderTemplates 按 id 的给出顺序重写 sort_order', async () => {
+  reset();
+  state.data.templates = [
+    template({ id: 't_a', sort_order: 0 }),
+    template({ id: 't_b', sort_order: 1 }),
+    template({ id: 't_c', sort_order: 2 }),
+  ];
+  state.data.pips = [pip({ template_id: 't_c' })];
+
+  assert.equal(await reorderTemplates(['t_c', 't_a', 't_b']), true);
+  assert.deepEqual(
+    state.data.templates.map((t) => [t.id, t.sort_order]),
+    [
+      ['t_a', 1],
+      ['t_b', 2],
+      ['t_c', 0],
+    ],
+  );
+  assert.ok(state.data.templates.every((t) => t.updated_at > 1), 'updated_at 是合并时判断谁更新的依据');
+  assert.deepEqual(writes, [{ calendar: true }], '点区和统计都读 sort_order，要整片重绘');
+});
+
+test('reorderTemplates 顺序没变时返回 false 且不写', async () => {
+  // 拖起来又放回原位是常态，每次都落盘会把 backup 填满
+  reset();
+  state.data.templates = [
+    template({ id: 't_a', sort_order: 0 }),
+    template({ id: 't_b', sort_order: 1 }),
+  ];
+
+  assert.equal(await reorderTemplates(['t_a', 't_b']), false);
+  assert.deepEqual(writes, []);
+});
+
+test('reorderTemplates 忽略不存在的 id，其余照常重排', async () => {
+  reset();
+  state.data.templates = [
+    template({ id: 't_a', sort_order: 0 }),
+    template({ id: 't_b', sort_order: 1 }),
+  ];
+
+  assert.equal(await reorderTemplates(['t_b', 't_没有', 't_a']), true);
+  assert.deepEqual(
+    state.data.templates.map((t) => [t.id, t.sort_order]),
+    [
+      ['t_a', 1],
+      ['t_b', 0],
+    ],
+  );
+});
+
+test('只读模式下重排被拦掉', async () => {
+  reset();
+  state.data.templates = [template()];
+  state.readOnly = true;
+
+  assert.equal(await reorderTemplates(['t_a']), false);
+  assert.equal(state.data.templates[0].sort_order, 0);
 });
 
 // ─────────────────────────────────────────────────────────

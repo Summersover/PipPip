@@ -337,6 +337,38 @@ export async function updateTemplate(id, patch) {
 }
 
 /**
+ * 重排模板：按传入的 id 顺序重写 `sort_order`（0,1,2…），选模板页拖拽排序用。
+ *
+ * `pips` 不带顺序语义，日历点区和统计页各自按 `sort_order` 排（TECH 6.5 的读时
+ * 计算），所以这里只改模板。
+ *
+ * @param {string[]} orderedIds 目标顺序的模板 id 列表
+ * @returns {Promise<boolean>} 是否真的落盘了
+ */
+export async function reorderTemplates(orderedIds) {
+  if (state.readOnly) return false;
+
+  const byId = new Map(state.data.templates.map((t) => [t.id, t]));
+  let changed = false;
+  let order = 0;
+  for (const id of orderedIds) {
+    const template = byId.get(id);
+    if (!template) continue; // 重排名单里带上了不存在的模板，跳过，不中断剩下的
+    if (template.sort_order !== order) {
+      template.sort_order = order;
+      template.updated_at = Date.now();
+      changed = true;
+    }
+    order += 1;
+  }
+  if (!changed) return false;
+
+  reindex();
+  await app.write({ calendar: true });
+  return true;
+}
+
+/**
  * 删一个模板，**连它的记录一起删**（PRD 7.5）。
  *
  * 这是全项目唯一会连带删掉用户数据的操作，二次确认由界面负责，这里只管删。
