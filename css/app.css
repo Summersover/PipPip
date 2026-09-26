@@ -399,7 +399,7 @@ button:disabled {
    就静默变样。
 
    顺序就是色相顺序，也是新建模板时自动分配颜色的顺序（PRD 9.2）。 */
-.pip-scarlet { --pip-color: #d6493c; }
+.pip-scarlet { --pip-color: #c0392b; }
 .pip-coral  { --pip-color: #e8734a; }
 .pip-amber  { --pip-color: #dfa32b; }
 .pip-moss   { --pip-color: #7a9e4a; }
