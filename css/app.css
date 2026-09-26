@@ -399,10 +399,10 @@ button:disabled {
    就静默变样。
 
    顺序就是色相顺序，也是新建模板时自动分配颜色的顺序（PRD 9.2）。 */
+.pip-scarlet { --pip-color: #d6493c; }
 .pip-coral  { --pip-color: #e8734a; }
 .pip-amber  { --pip-color: #dfa32b; }
 .pip-moss   { --pip-color: #7a9e4a; }
-.pip-lime   { --pip-color: #45ad51; }
 .pip-pine   { --pip-color: #3e8e7e; }
 .pip-lake   { --pip-color: #4a8fbf; }
 .pip-iris   { --pip-color: #7c6bb8; }
@@ -1424,8 +1424,9 @@ button:disabled {
   color: var(--danger);
 }
 
-/* 删除确认。用底色深浅分层，不用边框和阴影（PRD 9.1）。 */
-.tpl-confirm {
+/* 删除确认，模板表单与记录详情共用（CSS 是全局的，没必要各写一份）。
+   用底色深浅分层，不用边框和阴影（PRD 9.1）。 */
+.confirm {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
@@ -1434,19 +1435,19 @@ button:disabled {
   background: var(--bg);
 }
 
-.tpl-confirm-title {
+.confirm-title {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
 }
 
-.tpl-confirm-body {
+.confirm-body {
   margin: 0;
   font-size: 15px;
   color: var(--text-secondary);
 }
 
-.tpl-confirm-actions {
+.confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--sp-2);

@@ -66,10 +66,10 @@ function buildField(label, value, placeholder, maxLength) {
 }
 
 /**
- * 8 色预设色板，单选（PRD 7.5 / 9.2）。
+ * 10 色预设色板，单选（PRD 7.5 / 9.2）。
  *
  * 可点区域做满 44×44，里面画 28px 的圆：PRD 9.4 要求所有可点区域 ≥ 44×44px，而
- * 8 个 44px 的按钮正好铺满 390px 屏的 358px 可用宽度（`space-between` 把它们摊开，
+ * 10 个 44px 的按钮正好铺满 390px 屏的 358px 可用宽度（`space-between` 把它们摊开，
  * 圆与圆之间留出约 19px 的空隙）。
  *
  * @param {string} initial 初始选中色
@@ -155,19 +155,19 @@ function buildAction(label, hint, danger, onClick) {
  */
 function buildConfirm(template, count, onCancel, onDelete) {
   const box = document.createElement('div');
-  box.className = 'tpl-confirm';
+  box.className = 'confirm';
 
   const title = document.createElement('p');
-  title.className = 'tpl-confirm-title';
+  title.className = 'confirm-title';
   title.textContent = `删除「${template.title}」？`;
 
   const body = document.createElement('p');
-  body.className = 'tpl-confirm-body';
+  body.className = 'confirm-body';
   // 一条记录都没有时不说「这项的 0 条」，那句话没有信息量
-  body.textContent = count > 0 ? `这项的 ${count} 条打卡记录也会一起删除，无法恢复。` : '无法恢复。';
+  body.textContent = count > 0 ? `这项的 ${count} 条打卡记录也会一起删除，无法恢复` : '无法恢复';
 
   const row = document.createElement('div');
-  row.className = 'tpl-confirm-actions';
+  row.className = 'confirm-actions';
 
   const cancel = document.createElement('button');
   cancel.type = 'button';

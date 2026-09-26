@@ -136,6 +136,50 @@ export function renderDayList(params) {
 }
 
 /**
+ * 删除确认（PRD 7.4）。与模板表单的删除确认同一套结构——CSS 全局共用（.confirm），
+ * 和 buildField 各留一份是同一个道理（TECH 2）。
+ *
+ * 措辞按产品口径：删一条记录随时可以重记，确认挡的是**误触**，不是不可挽回的
+ * 后果，所以只说会发生什么，不渲染严重性（对比删除模板那条会写明连带删几条）。
+ *
+ * @param {import('../model.js').Pip} pip
+ * @param {() => void} onCancel 收回确认、还原删除按钮
+ * @param {() => void} onConfirm 真正删除
+ * @returns {HTMLDivElement}
+ */
+function buildRemoveConfirm(pip, onCancel, onConfirm) {
+  const box = document.createElement('div');
+  box.className = 'confirm';
+
+  const title = document.createElement('p');
+  title.className = 'confirm-title';
+  title.textContent = '删除这条记录？';
+
+  const body = document.createElement('p');
+  body.className = 'confirm-body';
+  body.textContent = '这条记录会从日历上移除';
+
+  const row = document.createElement('div');
+  row.className = 'confirm-actions';
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn-secondary';
+  cancel.textContent = '取消';
+  cancel.addEventListener('click', onCancel);
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn-danger';
+  remove.textContent = '删除';
+  remove.addEventListener('click', onConfirm);
+
+  row.append(cancel, remove);
+  box.append(title, body, row);
+  return box;
+}
+
+/**
  * 打卡详情。改备注、删记录（PRD 7.4）。
  *
  * @param {Record<string, unknown>} params
@@ -198,11 +242,19 @@ export function renderPipDetail(params) {
   remove.type = 'button';
   remove.className = 'pip-detail-remove';
   remove.textContent = '删除';
-  remove.addEventListener('click', async () => {
-    await removePip(pip.id);
-    // 这条记录已经没了，那个补写动作再跑一次只是白跑
-    setPendingFlush(null);
-    intent('back');
+  remove.addEventListener('click', () => {
+    // 确认就地展开、顶掉删除按钮；取消就把它换回来。不弹新的一层。
+    const confirmBox = buildRemoveConfirm(
+      pip,
+      () => confirmBox.replaceWith(remove),
+      async () => {
+        await removePip(pip.id);
+        // 这条记录已经没了，那个补写动作再跑一次只是白跑
+        setPendingFlush(null);
+        intent('back');
+      },
+    );
+    remove.replaceWith(confirmBox);
   });
 
   wrap.append(head, when, noteField, remove);

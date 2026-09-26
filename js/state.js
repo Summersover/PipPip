@@ -229,8 +229,8 @@ export async function updatePipNote(pipId, note) {
 /**
  * 删一条记录。
  *
- * **不二次确认**：删掉一条随时可以重新打一次，是低成本可逆操作——整个产品里只有
- * 删除模板需要确认（PRD 7.4）。
+ * **不在这里二次确认**：确认是界面的事（记录详情页就地展开，挡的是误触，见
+ * PRD 7.4），存储层只管删——删掉一条随时可以重新打一次。
  *
  * @param {string} pipId
  * @returns {Promise<string | null>} 被删那条的日期，供调用方重绘那一格

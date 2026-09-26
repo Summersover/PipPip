@@ -17,7 +17,7 @@
  */
 
 // >>> generated: assets
-const CACHE = 'pip-e9ca5f45';
+const CACHE = 'pip-3ba419f1';
 
 // 由 tools/stamp-sw.js 生成。清单变化时 CACHE 会自动变，不需要手改。
 const ASSETS = [
@@ -48,7 +48,14 @@ const ASSETS = [
 // <<< generated: assets
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) =>
+      // cache: 'reload'：预缓存一律回源取，不吃 HTTP 缓存。否则磁盘缓存里
+      // 「启发式新鲜」的旧文件会被焙进新版本的缓存，cache-first 从此一直
+      // 伺候旧代码（2026-09-26 本地预览踩过）。
+      cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' }))),
+    ),
+  );
 });
 
 self.addEventListener('activate', (event) => {
