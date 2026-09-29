@@ -1170,6 +1170,12 @@ button:disabled {
   margin: 0;
   padding: 0;
   list-style: none;
+  /* 拖动排序时浏览器会把按住移动当成「拖选」，行名和行尾被框成蓝色选区。
+     标题没有需要选中复制的场景，整列直接禁掉——顺带关掉 iOS 长按的
+     放大镜和呼出菜单，拖起来才不闪。 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .tpl-row {
