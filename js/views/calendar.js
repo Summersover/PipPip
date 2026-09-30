@@ -98,12 +98,30 @@ export function dotsForDay(pips, templateById) {
 }
 
 /**
+ * 渲染月份标题。
+ *
+ * `isCurrentMonth` 为 false（用户浏览到了别的月份）时，标题兼任「回到今天」的
+ * 入口（iOS 日历的习惯做法）：外观不变，加 tabindex + 说明性的 aria-label，
+ * Enter / Space 激活由 app.js 接。当月时恢复纯展示。
+ *
+ * 刻意**不**改成 role=button：那会让读屏把它念成「回到今天」，丢掉月份名——
+ * 保持 heading 角色，月分名留在 accessible name 里，动作追加在后面。
+ *
  * @param {HTMLElement} el
  * @param {number} year
  * @param {number} month 1–12
+ * @param {boolean} [isCurrentMonth] 当前浏览的月份是不是「今天」所在的月份
  */
-export function renderTitle(el, year, month) {
+export function renderTitle(el, year, month, isCurrentMonth = true) {
   el.textContent = formatMonth(year, month);
+  el.classList.toggle('is-away', !isCurrentMonth);
+  if (!isCurrentMonth) {
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', `${formatMonth(year, month)}，回到今天`);
+  } else {
+    el.removeAttribute('tabindex');
+    el.removeAttribute('aria-label');
+  }
 }
 
 /**

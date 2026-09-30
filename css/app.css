@@ -267,6 +267,23 @@ button:disabled {
 
 /* ── 日历网格 ─────────────────────────────────────────────── */
 
+/* 非当月时月份标题可点回今天（iOS 日历的习惯做法）。外观不变——
+   静就静在它不新增任何元素，可发现性靠「点月分标题是 iOS 的习惯」；
+   按下反馈只有标题变淡一档。键盘激活走 focus-visible 的强调色描边。 */
+.cal-title.is-away {
+  cursor: pointer;
+}
+
+.cal-title.is-away:active {
+  opacity: 0.4;
+}
+
+.cal-title.is-away:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 .cal-body {
   padding: 0 var(--sp-4);
 }

@@ -2,7 +2,7 @@
  * 入口：装配与启动。
  */
 
-import { toDateKey } from './dates.js';
+import { partsOf, toDateKey } from './dates.js';
 import { flushPending, goToday, index, mountHost, refreshToday, reindex, state } from './state.js';
 import * as store from './store.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
@@ -28,7 +28,10 @@ const settingsBody = document.getElementById('settings-body');
 function render() {
   if (!titleEl || !gridEl) return;
   refreshToday();
-  renderTitle(titleEl, state.view.year, state.view.month);
+  // 非当月时标题可点回今天，当月时恢复纯展示（renderTitle 里定）
+  const today = partsOf(state.todayKey);
+  const isCurrentMonth = state.view.year === today.y && state.view.month === today.m;
+  renderTitle(titleEl, state.view.year, state.view.month, isCurrentMonth);
   renderCalendar(gridEl, {
     year: state.view.year,
     month: state.view.month,
@@ -393,6 +396,26 @@ document.getElementById('prev-month')?.addEventListener('click', () => {
 document.getElementById('next-month')?.addEventListener('click', () => {
   shiftMonth(1);
   render();
+});
+
+// 非当月时点月份标题回今天（iOS 日历的习惯做法，语义见 renderTitle）
+titleEl?.addEventListener('click', () => {
+  if (titleEl.classList.contains('is-away')) {
+    goToday();
+    render();
+  }
+});
+
+// 标题不是原生按钮，Enter / Space 激活自己接
+titleEl?.addEventListener('keydown', (event) => {
+  if (
+    (event.key === 'Enter' || event.key === ' ') &&
+    titleEl.classList.contains('is-away')
+  ) {
+    event.preventDefault();
+    goToday();
+    render();
+  }
 });
 
 // 事件委托：42 个格子只挂一个监听器。用 closest 而不是直接比较 target，
