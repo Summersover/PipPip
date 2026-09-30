@@ -396,6 +396,11 @@ button:disabled {
   /* 颜色来自配套的色板类（9.2 那 10 个预设）。色板类不设 background，只定义
      --pip-color，所以这里不会和它抢，也不依赖任何源码顺序。 */
   background: var(--pip-color);
+  /* 同色柔光（PRD 9.5）：深色底上「这天记得多不多」靠它才一眼读得出，浅色底上
+     它给色点一点厚度。光色是点自己的颜色、45% 浓度，深浅两套主题**共用一套值**
+     ——不需要按主题分档。box-shadow 不占布局尺寸，「一行 5 个点 43px」的宽度
+     预算不受影响。 */
+  box-shadow: 0 0 5px 0 var(--pip-glow);
 }
 
 .cal-more {
@@ -411,25 +416,32 @@ button:disabled {
    保持一致——两边都是固定值，用类而不是行内 style 是为了不触发 CSP 的
    style-src 限制。tests/calendar.test.js 会检查两边没有漂移。
 
-   每条只做一件事：定义 `--pip-color`。**刻意不设 `background`**——色点由 `.pip` 取（填充）。
-   如果色板类自己设 background，它就会和使用它的规则抢，谁赢取决于源码顺序，排错一次
-   就静默变样。
+   每条定义两样：`--pip-color`（填充）和 `--pip-glow`（同色柔光，同色 45%）。
+   **刻意不设 `background`**——色点由 `.pip` 取（填充）。如果色板类自己设 background，
+   它就会和使用它的规则抢，谁赢取决于源码顺序，排错一次就静默变样。
+
+   光色写成显式 rgba 而不是 `color-mix(in srgb, var(--pip-color) 45%, transparent)`：
+   color-mix 要 Safari 16.2+，而目标环境是 iOS 16+，16.0/16.1 上整条 box-shadow
+   会失效——那种「部分设备没有发光」的静默差异正是这个项目最不想留的。
 
    顺序就是色相顺序，也是新建模板时自动分配颜色的顺序（PRD 9.2）。 */
-.pip-scarlet { --pip-color: #c0392b; }
-.pip-coral  { --pip-color: #e8734a; }
-.pip-amber  { --pip-color: #dfa32b; }
-.pip-moss   { --pip-color: #7a9e4a; }
-.pip-pine   { --pip-color: #3e8e7e; }
-.pip-lake   { --pip-color: #4a8fbf; }
-.pip-iris   { --pip-color: #7c6bb8; }
-.pip-orchid { --pip-color: #b955bd; }
-.pip-rose   { --pip-color: #d2607f; }
-.pip-slate  { --pip-color: #7a7671; }
+.pip-scarlet { --pip-color: #c0392b; --pip-glow: rgba(192, 57, 43, 0.45); }
+.pip-coral  { --pip-color: #e8734a; --pip-glow: rgba(232, 115, 74, 0.45); }
+.pip-amber  { --pip-color: #dfa32b; --pip-glow: rgba(223, 163, 43, 0.45); }
+.pip-moss   { --pip-color: #7a9e4a; --pip-glow: rgba(122, 158, 74, 0.45); }
+.pip-pine   { --pip-color: #3e8e7e; --pip-glow: rgba(62, 142, 126, 0.45); }
+.pip-lake   { --pip-color: #4a8fbf; --pip-glow: rgba(74, 143, 191, 0.45); }
+.pip-iris   { --pip-color: #7c6bb8; --pip-glow: rgba(124, 107, 184, 0.45); }
+.pip-orchid { --pip-color: #b955bd; --pip-glow: rgba(185, 85, 189, 0.45); }
+.pip-rose   { --pip-color: #d2607f; --pip-glow: rgba(210, 96, 127, 0.45); }
+.pip-slate  { --pip-color: #7a7671; --pip-glow: rgba(122, 118, 113, 0.45); }
 
-/* 模板缺失的兜底：只可能来自手工编辑或损坏的导入文件，不静默丢弃记录 */
+/* 模板缺失的兜底：只可能来自手工编辑或损坏的导入文件，不静默丢弃记录。
+   它的 --pip-color 跟着主题变（--text-tertiary），所以光色用中性的灰，
+   深浅两套下都成立。 */
 .pip-unknown {
   --pip-color: var(--text-tertiary);
+  --pip-glow: rgba(122, 118, 113, 0.4);
 }
 
 /* 打卡后新出现的那个点：200ms 轻微回弹（PRD 9.6）。
