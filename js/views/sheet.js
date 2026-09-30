@@ -125,6 +125,13 @@ export function push(name, params = {}) {
   const renderer = pages.get(name);
   if (!renderer) throw new Error(`未注册的弹窗页面：${name}`);
 
+  // 双击守卫：栈顶已是同名同参的页面就忽略。底部「Pip」连点两下不该叠出两层
+  // 一模一样的打卡页——退一层还停在同一个页面，看着像出了错。
+  if (stack.length > 0) {
+    const top = stack[stack.length - 1];
+    if (top.name === name && JSON.stringify(top.params) === JSON.stringify(params)) return;
+  }
+
   const wasEmpty = stack.length === 0;
   if (wasEmpty) {
     openingPanel = true;
@@ -172,6 +179,24 @@ export function closeAll() {
 }
 
 /**
+ * 原样重渲染栈顶页面：不进栈不出栈、不动 history、不播动画。
+ *
+ * 唯一的调用方是「跨午夜」（TECH 5.4）：页面挂着过了一天，「今天」变了，页面里
+ * 以今天为基准的东西（统计的区间、设置页的导出提醒）要重算。重渲染会重建页面
+ * DOM，所以未落盘的输入先补写一次。
+ *
+ * 打卡流程跳过：它的备注只在「确定」时从输入框取值，没有落盘路径，重建会把
+ * 打了一半的字丢掉；目标日期本来就取自打开那一刻，挂过一晚记到昨天反而是
+ * 补记的语义。
+ */
+export function rerenderTop() {
+  if (stack.length === 0) return;
+  if (stack[stack.length - 1].name === 'pip-create') return;
+  flushLeavingPage();
+  renderStack('none');
+}
+
+/**
  * 页面要离开之前，先让它把没落盘的东西补写一次（TECH 3.4）。
  *
  * 挂在退层和关弹窗这两条路径上：它们不一定让输入框失焦——Android 返回键就没有任何
@@ -187,7 +212,10 @@ function flushLeavingPage() {
 // ─────────────────────────────────────────────────────────
 
 /**
- * @param {'forward' | 'back'} direction
+ * 渲染栈顶页面。
+ *
+ * @param {'forward' | 'back' | 'none'} direction `none` 用于原样重渲染
+ *   （`rerenderTop`），不播页面切换动画
  */
 function renderStack(direction) {
   // 打开后的第一次渲染不播横向入场：卡片正在做自己的出现动画（缩放 + 淡入），内容跟着
@@ -215,7 +243,7 @@ function renderStack(direction) {
   // 栈深大于 1 才有「返回」，栈底那一层是「关闭」
   els.back.hidden = stack.length <= 1;
 
-  if (!skipAnimation) animatePage(direction);
+  if (!skipAnimation && direction !== 'none') animatePage(direction);
 }
 
 /**

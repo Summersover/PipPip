@@ -11,7 +11,7 @@ import { renderCalendar, renderCell, renderTitle } from './views/calendar.js';
 import { renderDayList, renderPipDetail } from './views/day.js';
 import { renderPipCreate } from './views/pip-form.js';
 import { renderSettings } from './views/settings.js';
-import { closeAll, mountSheet, push, registerPage } from './views/sheet.js';
+import { closeAll, mountSheet, push, registerPage, rerenderTop } from './views/sheet.js';
 import { renderStats } from './views/stats.js';
 import { renderTemplateEdit } from './views/templates.js';
 
@@ -462,7 +462,16 @@ document.addEventListener('visibilitychange', () => {
     void flushPending();
     return;
   }
-  if (toDateKey() !== state.todayKey) render();
+  if (toDateKey() !== state.todayKey) {
+    render();
+    // 打开着的页面里也有以「今天」为基准的内容：统计的区间、设置页的导出提醒。
+    // 重渲染会重建页面 DOM——未落盘的输入 rerenderTop 里先补写；设置页半途的
+    // 导入面板会被收掉，跨午夜才发生，可接受。
+    rerenderTop();
+    if (settingsView && !settingsView.hidden && settingsBody) {
+      renderSettings(settingsBody);
+    }
+  }
 });
 
 void boot();

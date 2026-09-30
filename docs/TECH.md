@@ -444,7 +444,7 @@ export function buildMonthGrid(year, month /* 1-12 */) {
 `todayKey` 会过期。如果用户晚上打开应用放着不动，过了午夜后「今天」还是昨天。对策：
 
 - **每次渲染前重新计算 `todayKey`**，不缓存在模块顶层
-- 监听 `visibilitychange`，页面重新可见时若 `toDateKey() !== state.todayKey`，则更新并重渲染
+- 监听 `visibilitychange`，页面重新可见时若 `toDateKey() !== state.todayKey`，则更新并重渲染。重渲染的范围是**当时可见的一切**：日历、打开着的弹窗页（`sheet.js` 的 `rerenderTop()`——统计的区间这类以今天为基准的内容重算；打卡流程除外，它的备注没有落盘路径，重建会丢打了一半的字）、以及设置页（导出提醒的天数）
 
 ### 5.5 格式化
 
@@ -618,6 +618,7 @@ stats           统计（区间 + 各模板次数）
 
 - 栈深 > 1 时，header 左侧出现 `‹` 返回
 - `✕`、点遮罩、`Escape`、Android 返回键都关闭**整个栈**
+- push 有**防重守卫**：栈顶已是同名同参的页面时忽略这次 push——底部「Pip」连点两下只开一层，不会叠出两个一模一样的页面
 - 页面切换用 180ms `ease-out` 的横向位移 + 淡入
 - 关闭时清空栈
 
@@ -917,6 +918,8 @@ export function mergeData(local, incoming) {
 ```
 
 因为每条 pip 和 template 都有独立 id，合并规则是明确的：按 id 取并集，同 id 冲突取 `updated_at` 较新者。这就是每条记录都带 `updated_at` 的用途。
+
+**合并收尾重编 `sort_order`**：并集只按 id 取，两台设备各建过的模板可能带着相同的 `sort_order`，展示顺序就成了碰运气。所以 `mergeData` 最后按展示顺序重编一遍 `sort_order`（`renumberTemplates`：启用在前、停用在后、组内保持原相对序，赋 0..n-1），覆盖导入也过同一步。
 
 **已知语义漏洞**：并集无法传播「删除」。A 设备删掉的一条记录，在 B 设备上仍然存在，合并时会回来。接受这个漏洞，因为纪律是「同一时间只在一台设备上打卡」，换设备时应该用「覆盖」而不是「合并」。
 

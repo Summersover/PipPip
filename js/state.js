@@ -14,6 +14,7 @@ import {
   groupPipsByDate,
   indexTemplates,
   mergeData,
+  renumberTemplates,
 } from './model.js';
 
 export const state = {
@@ -277,7 +278,12 @@ export async function importData(incoming, mode) {
   if (state.readOnly) return false;
 
   await app.backup();
-  state.data = mode === 'merge' ? mergeData(state.data, incoming) : incoming;
+  // 合并与覆盖都收尾重编 sort_order：并集后两台设备各建的模板可能同序，展示顺序
+  // 不该靠碰运气（TECH 9.3）
+  state.data =
+    mode === 'merge'
+      ? mergeData(state.data, incoming)
+      : { ...incoming, templates: renumberTemplates(incoming.templates) };
   reindex();
 
   await app.write({ calendar: true });

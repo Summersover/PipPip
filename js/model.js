@@ -443,6 +443,27 @@ export function mergeById(local, incoming) {
 }
 
 /**
+ * 重编模板的 `sort_order`：按展示顺序（启用在前、已停用在后、组内保持原相对序）
+ * 赋 0..n-1。
+ *
+ * 导入/合并的收尾一步：两台设备可以各建过一个「喝水」（`sort_order` 都是 0），
+ * 合并后谁的顺序在前就是碰运气——重编一遍之后平序不再存在，展示顺序从此稳定。
+ *
+ * 元素是**就地改**的：这里的对象要么来自刚 `normalize` 过的导入数据、要么就是
+ * 即将成为新 state 的本地对象，改完立刻作为唯一份被使用，没有第二处引用。
+ *
+ * @param {Template[]} templates
+ * @returns {Template[]} 按展示顺序排列的同一批元素
+ */
+export function renumberTemplates(templates) {
+  const ordered = orderedTemplates(templates);
+  ordered.forEach((template, i) => {
+    template.sort_order = i;
+  });
+  return ordered;
+}
+
+/**
  * 合并两整份数据。
  *
  * @param {PipData} local
@@ -452,9 +473,8 @@ export function mergeById(local, incoming) {
 export function mergeData(local, incoming) {
   return {
     version: SCHEMA_VERSION,
-    templates: mergeById(local.templates, incoming.templates).sort(
-      (a, b) => a.sort_order - b.sort_order,
-    ),
+    // 收尾重编消掉并集后可能出现的 sort_order 平序（TECH 9.3）
+    templates: renumberTemplates(mergeById(local.templates, incoming.templates)),
     pips: mergeById(local.pips, incoming.pips),
   };
 }

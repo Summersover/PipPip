@@ -24,6 +24,7 @@ import {
   orderedTemplates,
   parseImport,
   pickColor,
+  renumberTemplates,
 } from '../js/model.js';
 
 const pip = (over = {}) => ({
@@ -344,4 +345,37 @@ test('mergeData 合并两份数据，模板按 sort_order 排', () => {
   const merged = mergeData(local, incoming);
   assert.deepEqual(merged.templates.map((t) => t.id), ['t_a', 't_b']);
   assert.deepEqual(merged.pips.map((p) => p.id).sort(), ['p_1', 'p_2']);
+});
+
+test('mergeData 收尾重编 sort_order，两台设备各建的模板不再平序', () => {
+  // 两台设备各建过一个「喝水」，sort_order 都是 0——合并后顺序不能靠碰运气
+  const local = {
+    version: SCHEMA_VERSION,
+    templates: [template({ id: 't_a', sort_order: 0 })],
+    pips: [],
+  };
+  const incoming = {
+    version: SCHEMA_VERSION,
+    templates: [template({ id: 't_x', title: '别处的喝水', sort_order: 0 })],
+    pips: [],
+  };
+
+  const merged = mergeData(local, incoming);
+  assert.deepEqual(
+    merged.templates.map((t) => [t.id, t.sort_order]),
+    [['t_a', 0], ['t_x', 1]],
+    '平序按展示顺序（本地在前）重编成 0..n-1',
+  );
+});
+
+test('renumberTemplates 启用在前、停用在后，各自连续编号', () => {
+  const out = renumberTemplates([
+    template({ id: 't_arch', sort_order: 0, archived: true }),
+    template({ id: 't_b', sort_order: 5 }),
+    template({ id: 't_a', sort_order: 2 }),
+  ]);
+  assert.deepEqual(
+    out.map((t) => [t.id, t.sort_order]),
+    [['t_a', 0], ['t_b', 1], ['t_arch', 2]],
+  );
 });

@@ -334,6 +334,26 @@ test('importData 合并时取并集，覆盖时整份换掉', async () => {
   assert.deepEqual(state.data.pips.map((p) => p.id), ['p_2']);
 });
 
+test('覆盖导入的模板也重编 sort_order', async () => {
+  // 导入文件自带平序（两台设备各建过一个 sort_order 都是 7 的模板）也一样消除
+  reset();
+  await importData(
+    {
+      version: 1,
+      templates: [
+        template({ id: 't_x', sort_order: 7 }),
+        template({ id: 't_y', sort_order: 7 }),
+      ],
+      pips: [],
+    },
+    'replace',
+  );
+  assert.deepEqual(
+    state.data.templates.map((t) => [t.id, t.sort_order]),
+    [['t_x', 0], ['t_y', 1]],
+  );
+});
+
 test('导入之前一定先备份', async () => {
   // 选「覆盖」又选错文件，是唯一能一次毁掉全部数据的操作（TECH 9.2）
   reset();
