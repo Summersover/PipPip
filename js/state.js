@@ -51,9 +51,10 @@ export const index = {
   byTemplate: new Map(),
 
   /**
-   * 模板 → 该模板的全部记录。现在还没有读取方，是为统计预留的（TECH 6.5）：
-   * 它和 `byDate` 是同一趟遍历，现在建好几乎零成本，等做统计时再补就得回头
-   * 改这个函数。
+   * 模板 → 该模板的全部记录。目前唯一的读取方是模板编辑页：删除确认里
+   * 「会一起删掉几条」的计数（views/templates.js）直接查这里，不在渲染路径上
+   * 再过滤一遍 pips。统计页反而不用它——统计按区间算、还要扫全量，直接一趟
+   * 过 state.data.pips（views/stats.js，TECH 6.5）。
    *
    * @type {Map<string, import('./model.js').Pip[]>}
    */
